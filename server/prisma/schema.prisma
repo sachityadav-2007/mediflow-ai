@@ -49,6 +49,14 @@ enum AppointmentStatus {
   NO_SHOW
 }
 
+enum WaitlistStatus {
+  PENDING
+  NOTIFIED
+  ALLOCATED
+  EXPIRED
+  CANCELLED
+}
+
 // -----------------------------------------------------------------------------
 // MODEL 1: USER
 // Central authentication and profile record
@@ -90,6 +98,7 @@ model Doctor {
   // Relationships
   appointmentSlots AppointmentSlot[]
   appointments     Appointment[]
+  waitlists        Waitlist[]
 
   @@map("doctors")
 }
@@ -113,6 +122,7 @@ model Patient {
 
   // Relationships
   appointments     Appointment[]
+  waitlists        Waitlist[]
 
   @@map("patients")
 }
@@ -160,4 +170,25 @@ model Appointment {
   updatedAt         DateTime          @updatedAt
 
   @@map("appointments")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 6: WAITLIST
+// Dynamic patient waitlist with priority score for automated allocation
+// -----------------------------------------------------------------------------
+model Waitlist {
+  id            String         @id @default(uuid())
+  patientId     String
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId      String
+  doctor        Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  preferredDate DateTime
+  priority      PriorityLevel  @default(MEDIUM)
+  priorityScore Int            @default(0) // Higher score = higher priority
+  status        WaitlistStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("waitlists")
 }

@@ -26,6 +26,24 @@ enum Gender {
   OTHER
 }
 
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum PresenceStatus {
+  AVAILABLE
+  IN_CONSULTATION
+  ON_BREAK
+  ON_LEAVE
+  OFFLINE
+}
+
 enum SlotStatus {
   AVAILABLE
   BOOKED
@@ -83,19 +101,20 @@ model User {
 // Doctor-specific profile with professional credentials
 // -----------------------------------------------------------------------------
 model Doctor {
-  id               String            @id @default(uuid())
-  userId           String            @unique
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialization   String
-  department       String
-  experience       Int               // Years of clinical experience
-  qualification    String
-  consultationFee  Float
-  roomNumber       String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id              String               @id @default(uuid())
+  userId          String               @unique
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization  String
+  department      String
+  experience      Int                  // Years of clinical experience
+  qualification   String
+  consultationFee Float
+  roomNumber      String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   // Relationships
+  availabilities   DoctorAvailability[]
   appointmentSlots AppointmentSlot[]
   appointments     Appointment[]
   waitlists        Waitlist[]
@@ -128,7 +147,26 @@ model Patient {
 }
 
 // -----------------------------------------------------------------------------
-// MODEL 4: APPOINTMENT SLOT
+// MODEL 4: DOCTOR AVAILABILITY
+// Real-time presence tracking and recurring working schedule
+// -----------------------------------------------------------------------------
+model DoctorAvailability {
+  id             String         @id @default(uuid())
+  doctorId       String
+  doctor         Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  dayOfWeek      DayOfWeek
+  startTime      String         // e.g. "09:00"
+  endTime        String         // e.g. "17:00"
+  isAvailable    Boolean        @default(true)
+  presenceStatus PresenceStatus @default(AVAILABLE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("doctor_availabilities")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 5: APPOINTMENT SLOT
 // Discrete bookable time slots generated for doctors
 // -----------------------------------------------------------------------------
 model AppointmentSlot {
@@ -149,7 +187,7 @@ model AppointmentSlot {
 }
 
 // -----------------------------------------------------------------------------
-// MODEL 5: APPOINTMENT
+// MODEL 6: APPOINTMENT
 // Patient booking record with smart priority allocation
 // -----------------------------------------------------------------------------
 model Appointment {
@@ -173,7 +211,7 @@ model Appointment {
 }
 
 // -----------------------------------------------------------------------------
-// MODEL 6: WAITLIST
+// MODEL 7: WAITLIST
 // Dynamic patient waitlist with priority score for automated allocation
 // -----------------------------------------------------------------------------
 model Waitlist {

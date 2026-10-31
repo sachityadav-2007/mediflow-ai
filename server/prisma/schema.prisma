@@ -26,6 +26,29 @@ enum Gender {
   OTHER
 }
 
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  CANCELLED
+  BLOCKED
+}
+
+enum PriorityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  EMERGENCY
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
 // -----------------------------------------------------------------------------
 // MODEL 1: USER
 // Central authentication and profile record
@@ -52,17 +75,21 @@ model User {
 // Doctor-specific profile with professional credentials
 // -----------------------------------------------------------------------------
 model Doctor {
-  id              String   @id @default(uuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialization  String
-  department      String
-  experience      Int      // Years of clinical experience
-  qualification   String
-  consultationFee Float
-  roomNumber      String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String            @id @default(uuid())
+  userId           String            @unique
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization   String
+  department       String
+  experience       Int               // Years of clinical experience
+  qualification    String
+  consultationFee  Float
+  roomNumber       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Relationships
+  appointmentSlots AppointmentSlot[]
+  appointments     Appointment[]
 
   @@map("doctors")
 }
@@ -72,17 +99,65 @@ model Doctor {
 // Patient-specific medical and emergency profile
 // -----------------------------------------------------------------------------
 model Patient {
-  id               String    @id @default(uuid())
-  userId           String    @unique
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String        @id @default(uuid())
+  userId           String        @unique
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   dateOfBirth      DateTime?
   gender           Gender?
   bloodGroup       String?
   address          String?
   emergencyContact String?
   medicalHistory   String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relationships
+  appointments     Appointment[]
 
   @@map("patients")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 4: APPOINTMENT SLOT
+// Discrete bookable time slots generated for doctors
+// -----------------------------------------------------------------------------
+model AppointmentSlot {
+  id          String       @id @default(uuid())
+  doctorId    String
+  doctor      Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  slotDate    DateTime     // Specific date for this slot
+  startTime   String       // e.g. "09:00"
+  endTime     String       // e.g. "09:30"
+  status      SlotStatus   @default(AVAILABLE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // 1-to-1 relation with an appointment
+  appointment Appointment?
+
+  @@map("appointment_slots")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 5: APPOINTMENT
+// Patient booking record with smart priority allocation
+// -----------------------------------------------------------------------------
+model Appointment {
+  id                String            @id @default(uuid())
+  appointmentNumber String            @unique // e.g. "APT-20261031-001"
+  patientId         String
+  patient           Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId          String
+  doctor            Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  slotId            String            @unique
+  slot              AppointmentSlot   @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  appointmentDate   DateTime
+  priority          PriorityLevel     @default(MEDIUM)
+  status            AppointmentStatus @default(SCHEDULED)
+  reason            String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("appointments")
 }

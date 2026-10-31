@@ -150,6 +150,53 @@ mediflow-ai/
 
 ---
 
+## 🔐 Phase 3: Authentication & Role-Based Access Control (RBAC)
+
+MediFlow AI uses an industry-standard, secure authentication pipeline:
+- **Password Security:** Salted hashes generated with `bcryptjs` (salt rounds: 10).
+- **Session Management:** JSON Web Tokens (JWT) signed with `JWT_SECRET` and stored in **HTTP-only cookies** to prevent Cross-Site Scripting (XSS) extraction.
+- **CSRF Protection:** Cookie configured with `SameSite=lax` (or `None` with `Secure` in production).
+- **Three Supported Roles:**
+  - `ADMIN` — System-wide management and analytics
+  - `DOCTOR` — Clinical availability, slot scheduling, patient queues
+  - `PATIENT` — Appointment booking, priority waitlist requests
+
+### Authentication Endpoints
+
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| `POST` | `/api/auth/register` | Public | Register new `PATIENT` or `DOCTOR` with automatic profile creation |
+| `POST` | `/api/auth/login` | Public | Authenticates credentials and sets HTTP-only `token` cookie |
+| `POST` | `/api/auth/logout` | Authenticated | Clears the HTTP-only `token` cookie |
+| `GET` | `/api/auth/me` | Authenticated | Returns current authenticated user and linked profile |
+
+---
+
+## 🩺 Phase 4: Doctor Management & Presence Tracking
+
+MediFlow AI provides an interactive doctor management and live clinic presence system:
+- **Doctor Directory (`GET /api/doctors`):** Public browsing with multi-keyword search (`?search=`) and specialization filters (`?specialization=`).
+- **Doctor Profile Management (`GET / PUT /api/doctors/profile`):** Doctors update clinical specialization, consultation fee, consultation duration, and room number.
+- **Working Schedule Configuration (`GET / PUT /api/doctors/schedule`):** Doctors configure days of week, start times, end times, and duration.
+- **Clinic Presence Controller (`PUT /api/presence/status`):** Real-time presence toggles (`PRESENT`, `AWAY`, `BUSY`, `OFFLINE`).
+- **Audit Logging (`PresenceLog`):** Every presence state transition is permanently recorded with a timestamp and detection method (`MANUAL`).
+
+### Doctor Management Endpoints
+
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| `GET` | `/api/doctors` | Public | Browse all doctors with search & specialization filtering |
+| `GET` | `/api/doctors/:id` | Public | Get single doctor details with schedule and recent presence |
+| `GET` | `/api/doctors/profile` | Doctor | Get authenticated doctor's full profile |
+| `PUT` | `/api/doctors/profile` | Doctor | Update authenticated doctor's profile |
+| `GET` | `/api/doctors/:id/schedule` | Public | Get working schedule for doctor |
+| `PUT` | `/api/doctors/schedule` | Doctor | Update authenticated doctor's working schedule |
+| `GET` | `/api/presence` | Public | Get live presence status for all doctors |
+| `GET` | `/api/presence/:doctorId` | Public | Get presence status & audit log for doctor |
+| `PUT` | `/api/presence/status` | Doctor | Update live presence status (`PRESENT`, `AWAY`, `BUSY`, `OFFLINE`) |
+
+---
+
 ## 🧪 Verification & Health Check
 
 1. Open your browser and visit: `http://localhost:5173`

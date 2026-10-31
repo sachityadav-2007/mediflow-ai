@@ -37,11 +37,21 @@ enum DayOfWeek {
 }
 
 enum PresenceStatus {
+  PRESENT
+  AWAY
+  BUSY
+  OFFLINE
   AVAILABLE
   IN_CONSULTATION
   ON_BREAK
   ON_LEAVE
-  OFFLINE
+}
+
+enum DetectionMethod {
+  MANUAL
+  RFID
+  FACE_RECOGNITION
+  MOBILE_PROXIMITY
 }
 
 enum SlotStatus {
@@ -101,23 +111,26 @@ model User {
 // Doctor-specific profile with professional credentials
 // -----------------------------------------------------------------------------
 model Doctor {
-  id              String               @id @default(uuid())
-  userId          String               @unique
-  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialization  String
-  department      String
-  experience      Int                  // Years of clinical experience
-  qualification   String
-  consultationFee Float
-  roomNumber      String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id                   String               @id @default(uuid())
+  userId               String               @unique
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization       String
+  department           String
+  experience           Int                  // Years of clinical experience
+  qualification        String
+  consultationFee      Float
+  consultationDuration Int                  @default(30) // Consultation duration in minutes
+  currentPresence      PresenceStatus       @default(OFFLINE) // Current live presence status
+  roomNumber           String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   // Relationships
-  availabilities   DoctorAvailability[]
-  appointmentSlots AppointmentSlot[]
-  appointments     Appointment[]
-  waitlists        Waitlist[]
+  availabilities       DoctorAvailability[]
+  presenceLogs         PresenceLog[]
+  appointmentSlots     AppointmentSlot[]
+  appointments         Appointment[]
+  waitlists            Waitlist[]
 
   @@map("doctors")
 }
@@ -166,7 +179,23 @@ model DoctorAvailability {
 }
 
 // -----------------------------------------------------------------------------
-// MODEL 5: APPOINTMENT SLOT
+// MODEL 5: PRESENCE LOG
+// Historical audit log of doctor status transitions
+// -----------------------------------------------------------------------------
+model PresenceLog {
+  id              String          @id @default(uuid())
+  doctorId        String
+  doctor          Doctor          @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  status          PresenceStatus
+  detectionMethod DetectionMethod @default(MANUAL)
+  notes           String?
+  timestamp       DateTime        @default(now())
+
+  @@map("presence_logs")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 6: APPOINTMENT SLOT
 // Discrete bookable time slots generated for doctors
 // -----------------------------------------------------------------------------
 model AppointmentSlot {
@@ -187,7 +216,7 @@ model AppointmentSlot {
 }
 
 // -----------------------------------------------------------------------------
-// MODEL 6: APPOINTMENT
+// MODEL 7: APPOINTMENT
 // Patient booking record with smart priority allocation
 // -----------------------------------------------------------------------------
 model Appointment {
@@ -211,7 +240,7 @@ model Appointment {
 }
 
 // -----------------------------------------------------------------------------
-// MODEL 7: WAITLIST
+// MODEL 8: WAITLIST
 // Dynamic patient waitlist with priority score for automated allocation
 // -----------------------------------------------------------------------------
 model Waitlist {

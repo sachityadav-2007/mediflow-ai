@@ -1,25 +1,31 @@
 const { Server } = require('socket.io');
 
+let ioInstance = null;
+
 // Initialize Socket.IO with HTTP server and CORS settings
 function initSocket(server) {
-  const io = new Server(server, {
+  ioInstance = new Server(server, {
     cors: {
       origin: process.env.CLIENT_URL || 'http://localhost:5173',
-      methods: ['GET', 'POST'],
-      credentials: true
-    }
+      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      credentials: true,
+    },
   });
 
-  io.on('connection', (socket) => {
-    console.log(`Client connected: ${socket.id}`);
+  ioInstance.on('connection', (socket) => {
+    console.log(`Socket client connected: ${socket.id}`);
 
     socket.on('disconnect', () => {
-      console.log(`Client disconnected: ${socket.id}`);
+      console.log(`Socket client disconnected: ${socket.id}`);
     });
   });
 
-  return io;
+  return ioInstance;
 }
 
-module.exports = { initSocket };
+// Export getter for real-time broadcasts
+function getIO() {
+  return ioInstance;
+}
 
+module.exports = { initSocket, getIO };

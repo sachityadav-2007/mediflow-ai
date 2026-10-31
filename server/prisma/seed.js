@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
@@ -19,13 +20,14 @@ async function main() {
   // 2. Seed Users
   // ---------------------------------------------------------------------------
   console.log('👤 Seeding Users...');
+  const hashedPassword = await bcrypt.hash('password123', 10);
 
   // Admin User
   const adminUser = await prisma.user.create({
     data: {
       name: 'System Admin',
       email: 'admin@mediflow.com',
-      password: 'password123', // In Phase 3, this will be hashed with bcrypt
+      password: hashedPassword,
       role: 'ADMIN',
       phone: '+91 98765 43210',
     },
@@ -36,7 +38,7 @@ async function main() {
     data: {
       name: 'Dr. Rajesh Sharma',
       email: 'dr.sharma@mediflow.com',
-      password: 'password123',
+      password: hashedPassword,
       role: 'DOCTOR',
       phone: '+91 98111 22334',
     },
@@ -47,7 +49,7 @@ async function main() {
     data: {
       name: 'Dr. Ananya Patel',
       email: 'dr.patel@mediflow.com',
-      password: 'password123',
+      password: hashedPassword,
       role: 'DOCTOR',
       phone: '+91 98222 33445',
     },
@@ -58,7 +60,7 @@ async function main() {
     data: {
       name: 'Rahul Verma',
       email: 'rahul.verma@example.com',
-      password: 'password123',
+      password: hashedPassword,
       role: 'PATIENT',
       phone: '+91 98333 44556',
     },
@@ -69,7 +71,7 @@ async function main() {
     data: {
       name: 'Priya Singh',
       email: 'priya.singh@example.com',
-      password: 'password123',
+      password: hashedPassword,
       role: 'PATIENT',
       phone: '+91 98444 55667',
     },
@@ -80,7 +82,7 @@ async function main() {
     data: {
       name: 'Amit Sharma',
       email: 'amit.sharma@example.com',
-      password: 'password123',
+      password: hashedPassword,
       role: 'PATIENT',
       phone: '+91 98555 66778',
     },

@@ -1,19 +1,106 @@
 import axios from 'axios';
 
-// Create an Axios instance with the backend base URL
+// Create an Axios instance with the backend base URL and credentials enabled
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-  timeout: 5000,
+  timeout: 8000,
+  withCredentials: true, // Enables sending and receiving HTTP-only cookies
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Health check service function to test backend connectivity
+// -----------------------------------------------------------------------------
+// Health Check Service
+// -----------------------------------------------------------------------------
 export const getHealthStatus = async () => {
   const response = await api.get('/api/health');
   return response.data;
 };
 
-export default api;
+// -----------------------------------------------------------------------------
+// Authentication Services
+// -----------------------------------------------------------------------------
+export const registerUser = async (userData) => {
+  const response = await api.post('/api/auth/register', userData);
+  return response.data;
+};
 
+export const loginUser = async (credentials) => {
+  const response = await api.post('/api/auth/login', credentials);
+  return response.data;
+};
+
+export const logoutUser = async () => {
+  const response = await api.post('/api/auth/logout');
+  return response.data;
+};
+
+export const getCurrentUser = async () => {
+  const response = await api.get('/api/auth/me');
+  return response.data;
+};
+
+// -----------------------------------------------------------------------------
+// Doctor Management Services
+// -----------------------------------------------------------------------------
+
+// Fetch doctors directory with optional search & specialization filter
+export const getDoctors = async (params = {}) => {
+  const response = await api.get('/api/doctors', { params });
+  return response.data;
+};
+
+// Fetch single doctor details by doctor ID
+export const getDoctorById = async (id) => {
+  const response = await api.get(`/api/doctors/${id}`);
+  return response.data;
+};
+
+// Fetch authenticated doctor's profile
+export const getDoctorProfile = async () => {
+  const response = await api.get('/api/doctors/profile');
+  return response.data;
+};
+
+// Update authenticated doctor's profile
+export const updateDoctorProfile = async (profileData) => {
+  const response = await api.put('/api/doctors/profile', profileData);
+  return response.data;
+};
+
+// Fetch doctor schedule
+export const getDoctorSchedule = async (doctorId) => {
+  const response = await api.get(`/api/doctors/${doctorId}/schedule`);
+  return response.data;
+};
+
+// Update authenticated doctor's schedule
+export const updateDoctorSchedule = async (scheduleData) => {
+  const response = await api.put('/api/doctors/schedule', scheduleData);
+  return response.data;
+};
+
+// -----------------------------------------------------------------------------
+// Doctor Presence Services
+// -----------------------------------------------------------------------------
+
+// Fetch current presence list of all doctors
+export const getAllPresences = async () => {
+  const response = await api.get('/api/presence');
+  return response.data;
+};
+
+// Fetch presence and history for a specific doctor
+export const getDoctorPresence = async (doctorId) => {
+  const response = await api.get(`/api/presence/${doctorId}`);
+  return response.data;
+};
+
+// Update authenticated doctor's presence status
+export const updateDoctorPresence = async (status, notes = '') => {
+  const response = await api.put('/api/presence/status', { status, notes });
+  return response.data;
+};
+
+export default api;

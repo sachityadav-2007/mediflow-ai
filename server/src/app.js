@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const healthRoutes = require('./routes/health.routes');
+const databaseRoutes = require('./routes/database.routes');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 
 // Register API routes
 app.use('/api', healthRoutes);
+app.use('/api', databaseRoutes);
 
 module.exports = app;
 

@@ -18,6 +18,8 @@ MediFlow AI is a full-stack healthcare platform designed to modernize hospital a
 ### Backend
 - **Node.js** (JavaScript runtime)
 - **Express.js** (Minimalist web framework)
+- **PostgreSQL** (Relational database)
+- **Prisma ORM** (Type-safe database ORM & migrations)
 - **Socket.IO** (Real-time bidirectional event-based communication)
 - **CORS** (Cross-origin resource sharing middleware)
 - **Dotenv** (Environment variable management)
@@ -49,14 +51,21 @@ mediflow-ai/
 │   └── vite.config.js          # Vite configuration
 │
 ├── server/                     # Backend Node/Express application
+│   ├── prisma/                 # Prisma schema & database migrations
+│   │   ├── migrations/         # SQL migration history
+│   │   ├── schema.prisma       # 7 core database models and enums
+│   │   └── seed.js             # Database seeder with sample data
 │   ├── src/
 │   │   ├── config/             # Configuration modules
+│   │   │   ├── db.js           # Prisma client singleton
 │   │   │   └── socket.js       # Socket.IO initialization
 │   │   ├── controllers/        # Request handlers
-│   │   │   └── health.controller.js # Health check logic
+│   │   │   ├── database.controller.js # Database read & stats controller
+│   │   │   └── health.controller.js   # Health check & DB status logic
 │   │   ├── middleware/         # Custom Express middleware (placeholder)
 │   │   ├── routes/             # API routes
-│   │   │   └── health.routes.js# Health check endpoint route
+│   │   │   ├── database.routes.js     # Database overview routes
+│   │   │   └── health.routes.js       # Health check endpoint route
 │   │   ├── services/           # Business logic layer (placeholder)
 │   │   ├── app.js              # Express app setup and middleware
 │   │   └── server.js           # Server entry point and HTTP/Socket listener
@@ -93,14 +102,25 @@ mediflow-ai/
    ```bash
    cp .env.example .env
    ```
-   *(By default, `PORT=5000` and `CLIENT_URL=http://localhost:5173` are set)*
+   *(Update `DATABASE_URL` with your PostgreSQL credentials if needed; defaults to `postgresql://postgres@localhost:5432/mediflow_ai?schema=public`)*
 
-4. Start the development server:
+4. Run database migrations:
+   ```bash
+   npx prisma migrate dev
+   ```
+
+5. Seed sample healthcare data:
+   ```bash
+   npm run seed
+   ```
+
+6. Start the development server:
    ```bash
    npm run dev
    ```
    The backend server will run at: `http://localhost:5000`  
-   Health check endpoint: `http://localhost:5000/api/health`
+   Health check endpoint: `http://localhost:5000/api/health`  
+   Database overview endpoint: `http://localhost:5000/api/db-overview`
 
 ---
 

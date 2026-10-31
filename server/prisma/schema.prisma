@@ -20,19 +20,69 @@ enum Role {
   RECEPTIONIST
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
 // -----------------------------------------------------------------------------
 // MODEL 1: USER
 // Central authentication and profile record
 // -----------------------------------------------------------------------------
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(PATIENT)
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+  password       String
+  role           Role      @default(PATIENT)
+  phone          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // 1-to-1 profile relations
+  doctorProfile  Doctor?
+  patientProfile Patient?
 
   @@map("users")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 2: DOCTOR
+// Doctor-specific profile with professional credentials
+// -----------------------------------------------------------------------------
+model Doctor {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization  String
+  department      String
+  experience      Int      // Years of clinical experience
+  qualification   String
+  consultationFee Float
+  roomNumber      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("doctors")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 3: PATIENT
+// Patient-specific medical and emergency profile
+// -----------------------------------------------------------------------------
+model Patient {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOfBirth      DateTime?
+  gender           Gender?
+  bloodGroup       String?
+  address          String?
+  emergencyContact String?
+  medicalHistory   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("patients")
 }

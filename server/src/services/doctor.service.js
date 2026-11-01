@@ -117,6 +117,30 @@ const getDoctorProfileByUserId = async (userId) => {
         orderBy: { timestamp: 'desc' },
         take: 10,
       },
+      appointments: {
+        include: {
+          patient: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                  phone: true,
+                },
+              },
+            },
+          },
+          slot: {
+            select: {
+              startTime: true,
+              endTime: true,
+              slotDate: true,
+            },
+          },
+        },
+        orderBy: { appointmentDate: 'desc' },
+        take: 10,
+      },
     },
   });
 

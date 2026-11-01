@@ -7,6 +7,7 @@ import {
   updateDoctorPresence,
   getDoctorPresence,
   updateDoctorSchedule,
+  updateAppointmentStatus,
 } from '../services/api';
 
 const DAYS_OF_WEEK = [
@@ -22,6 +23,8 @@ const DAYS_OF_WEEK = [
 function DoctorDashboard() {
   const { user, logout } = useAuth();
   const [doctorData, setDoctorData] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [updatingApptId, setUpdatingApptId] = useState(null);
   const [presenceLogs, setPresenceLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
@@ -57,6 +60,7 @@ function DoctorDashboard() {
       if (data && data.success && data.doctor) {
         const doc = data.doctor;
         setDoctorData(doc);
+        setAppointments(doc.appointments || []);
         setCurrentStatus(doc.currentPresence || 'OFFLINE');
         setConsultationDuration(doc.consultationDuration || 30);
 
@@ -140,6 +144,31 @@ function DoctorDashboard() {
       });
     } finally {
       setUpdatingPresence(false);
+    }
+  };
+
+  // Status Change Handler for Appointments
+  const handleStatusChange = async (apptId, newStatus) => {
+    setUpdatingApptId(apptId);
+    setActionMessage({ type: '', text: '' });
+    try {
+      const res = await updateAppointmentStatus(apptId, newStatus);
+      if (res && res.success) {
+        setActionMessage({
+          type: 'success',
+          text: `Appointment status updated to ${newStatus}.`,
+        });
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === apptId ? { ...a, status: newStatus } : a))
+        );
+      }
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err.response?.data?.message || 'Failed to update appointment status.',
+      });
+    } finally {
+      setUpdatingApptId(null);
     }
   };
 
@@ -354,6 +383,116 @@ function DoctorDashboard() {
               ⚪ OFFLINE (Left Clinic)
             </button>
           </div>
+        </div>
+
+        {/* Today's Appointments Section */}
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-base font-bold text-gray-900">
+                Scheduled Appointments
+              </h2>
+              <p className="text-xs text-gray-500">
+                Patients scheduled for consultation with live clinical status controls.
+              </p>
+            </div>
+            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
+              Total: {appointments.length}
+            </span>
+          </div>
+
+          {appointments.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-xs">
+              <span className="text-2xl block mb-1">📅</span>
+              No appointments scheduled.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
+                    <th className="pb-2">Token / ID</th>
+                    <th className="pb-2">Patient</th>
+                    <th className="pb-2">Slot Time</th>
+                    <th className="pb-2">Priority</th>
+                    <th className="pb-2">Current Status</th>
+                    <th className="pb-2">Reason</th>
+                    <th className="pb-2">Update Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {appointments.map((apt) => (
+                    <tr key={apt.id} className="hover:bg-gray-50/60 transition">
+                      <td className="py-3 font-mono font-bold text-blue-600">
+                        {apt.appointmentNumber}
+                      </td>
+                      <td className="py-3">
+                        <p className="font-semibold text-gray-800">
+                          {apt.patient?.user?.name || 'Unknown Patient'}
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          {apt.patient?.user?.phone || 'No phone'}
+                        </p>
+                      </td>
+                      <td className="py-3 font-mono text-gray-700">
+                        {apt.slot?.startTime} &ndash; {apt.slot?.endTime}
+                      </td>
+                      <td className="py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            apt.priority === 'EMERGENCY'
+                              ? 'bg-red-100 text-red-800 border border-red-200'
+                              : apt.priority === 'HIGH'
+                              ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                              : apt.priority === 'MEDIUM'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                          }`}
+                        >
+                          {apt.priority}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            apt.status === 'COMPLETED'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : apt.status === 'IN_PROGRESS'
+                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                              : apt.status === 'CONFIRMED'
+                              ? 'bg-green-100 text-green-800 border border-green-200'
+                              : apt.status === 'CANCELLED'
+                              ? 'bg-red-100 text-red-700 border border-red-200'
+                              : 'bg-blue-100 text-blue-800 border border-blue-200'
+                          }`}
+                        >
+                          ● {apt.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-gray-600 max-w-xs truncate" title={apt.reason}>
+                        {apt.reason || 'General checkup'}
+                      </td>
+                      <td className="py-3">
+                        <select
+                          value={apt.status}
+                          disabled={updatingApptId === apt.id}
+                          onChange={(e) => handleStatusChange(apt.id, e.target.value)}
+                          className="px-2 py-1 text-[11px] font-medium rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                        >
+                          <option value="SCHEDULED">SCHEDULED</option>
+                          <option value="CONFIRMED">CONFIRMED</option>
+                          <option value="IN_PROGRESS">IN_PROGRESS</option>
+                          <option value="COMPLETED">COMPLETED</option>
+                          <option value="CANCELLED">CANCELLED</option>
+                          <option value="NO_SHOW">NO_SHOW</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* 2-Column Section: Schedule & Presence History */}

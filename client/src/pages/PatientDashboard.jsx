@@ -25,12 +25,24 @@ function PatientDashboard() {
                 MediFlow AI Patient Dashboard &bull; Appointments &amp; Waitlist
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Link
-                to="/doctors"
+                to="/book"
                 className="self-start sm:self-auto px-4 py-2 bg-white text-teal-800 text-xs font-semibold rounded-lg shadow-sm hover:bg-teal-50 transition"
               >
-                🩺 View Doctors
+                📅 Book Appointment
+              </Link>
+              <Link
+                to="/my-appointments"
+                className="self-start sm:self-auto px-4 py-2 bg-teal-600/80 hover:bg-teal-600 text-white text-xs font-semibold rounded-lg border border-teal-400/40 transition"
+              >
+                📋 My Appointments
+              </Link>
+              <Link
+                to="/doctors"
+                className="self-start sm:self-auto px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg border border-white/20 transition"
+              >
+                🩺 Doctors
               </Link>
               <button
                 onClick={logout}

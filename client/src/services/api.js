@@ -103,4 +103,54 @@ export const updateDoctorPresence = async (status, notes = '') => {
   return response.data;
 };
 
+// -----------------------------------------------------------------------------
+// Appointment Services
+// -----------------------------------------------------------------------------
+
+// Fetch available slots for a doctor on a specific date (YYYY-MM-DD)
+export const getAvailableSlots = async (doctorId, date) => {
+  const response = await api.get(`/api/appointments/slots/${doctorId}`, {
+    params: { date },
+  });
+  return response.data;
+};
+
+// Book an appointment (Patient only)
+export const bookAppointment = async (bookingData) => {
+  const response = await api.post('/api/appointments', bookingData);
+  return response.data;
+};
+
+// Get logged-in patient's appointments
+export const getPatientAppointments = async () => {
+  const response = await api.get('/api/appointments/my');
+  return response.data;
+};
+
+// Get logged-in doctor's appointments
+export const getDoctorAppointments = async () => {
+  const response = await api.get('/api/appointments/doctor/my');
+  return response.data;
+};
+
+// Get today's appointments for logged-in doctor
+export const getTodayDoctorAppointments = async () => {
+  const response = await api.get('/api/appointments/doctor/today');
+  return response.data;
+};
+
+// Cancel an appointment
+export const cancelAppointment = async (appointmentId) => {
+  const response = await api.put(`/api/appointments/${appointmentId}/cancel`);
+  return response.data;
+};
+
+// Update appointment status (Doctor only)
+export const updateAppointmentStatus = async (appointmentId, status) => {
+  const response = await api.put(`/api/appointments/${appointmentId}/status`, {
+    status,
+  });
+  return response.data;
+};
+
 export default api;

@@ -52,6 +52,23 @@ function Navbar() {
               Doctors Directory
             </Link>
 
+            {user?.role === 'PATIENT' && (
+              <>
+                <Link
+                  to="/book"
+                  className="text-sm font-medium text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md"
+                >
+                  Book Appointment
+                </Link>
+                <Link
+                  to="/my-appointments"
+                  className="text-sm font-medium text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md"
+                >
+                  My Appointments
+                </Link>
+              </>
+            )}
+
             {user ? (
               <>
                 <Link

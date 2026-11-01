@@ -7,6 +7,8 @@ import DoctorDirectoryPage from './pages/DoctorDirectoryPage';
 import AdminDashboard from './pages/AdminDashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import PatientDashboard from './pages/PatientDashboard';
+import BookAppointmentPage from './pages/BookAppointmentPage';
+import MyAppointmentsPage from './pages/MyAppointmentsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -21,6 +23,22 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Protected Role-Based Routes */}
+          <Route
+            path="/book"
+            element={
+              <ProtectedRoute allowedRoles={['PATIENT']}>
+                <BookAppointmentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-appointments"
+            element={
+              <ProtectedRoute allowedRoles={['PATIENT']}>
+                <MyAppointmentsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/dashboard"
             element={

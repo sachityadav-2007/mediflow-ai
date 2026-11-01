@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getDoctors } from '../services/api';
 
@@ -254,10 +255,16 @@ function DoctorDirectoryPage() {
                 </div>
 
                 {/* Footer Action */}
-                <div className="mt-5 pt-3 border-t border-gray-100">
-                  <div className="text-xs text-gray-400 text-center">
-                    Contact: <span className="text-gray-700 font-medium">{doctor.user.email}</span>
+                <div className="mt-5 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                  <div className="text-[11px] text-gray-400 truncate">
+                    {doctor.user.email}
                   </div>
+                  <Link
+                    to={`/book?doctorId=${doctor.id}`}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-sm transition whitespace-nowrap"
+                  >
+                    Book Slot →
+                  </Link>
                 </div>
               </div>
             ))}

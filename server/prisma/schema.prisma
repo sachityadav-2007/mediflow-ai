@@ -250,7 +250,8 @@ model Waitlist {
   doctorId      String
   doctor        Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   preferredDate DateTime
-  priority      PriorityLevel  @default(MEDIUM)
+  priority      PriorityLevel  @default(MEDIUM) // Medical Priority
+  urgency       PriorityLevel  @default(MEDIUM) // Clinical Urgency
   priorityScore Int            @default(0) // Higher score = higher priority
   status        WaitlistStatus @default(PENDING)
   notes         String?

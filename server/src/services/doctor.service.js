@@ -412,6 +412,13 @@ const updateDoctorPresence = async (doctorId, status, notes = '') => {
   // 3. Emit real-time notification via Socket.IO if connected
   const io = getIO();
   if (io) {
+    // Standard Phase 7 event
+    io.emit('doctor_status_changed', {
+      doctorId: result.doctorId,
+      presenceStatus: result.currentPresence,
+      updatedAt: result.log.timestamp,
+    });
+    // Backward-compatible alias
     io.emit('doctor_presence_changed', {
       doctorId: result.doctorId,
       status: result.currentPresence,

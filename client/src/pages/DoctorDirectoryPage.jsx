@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getDoctors } from '../services/api';
+import { useSocket } from '../hooks/useSocket';
 
 function DoctorDirectoryPage() {
   const [doctors, setDoctors] = useState([]);
@@ -45,6 +46,19 @@ function DoctorDirectoryPage() {
   useEffect(() => {
     fetchDoctors();
   }, [specialization]);
+
+  // Real-time Socket.IO: update presence badge without page refresh
+  useSocket('doctor_status_changed', (data) => {
+    if (data?.doctorId) {
+      setDoctors((prev) =>
+        prev.map((doc) =>
+          doc.id === data.doctorId
+            ? { ...doc, currentPresence: data.presenceStatus }
+            : doc
+        )
+      );
+    }
+  });
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

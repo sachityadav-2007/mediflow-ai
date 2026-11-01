@@ -153,4 +153,38 @@ export const updateAppointmentStatus = async (appointmentId, status) => {
   return response.data;
 };
 
+// -----------------------------------------------------------------------------
+// Smart Waitlist Services (Phase 6)
+// -----------------------------------------------------------------------------
+
+// Join waitlist (Patient only)
+export const joinWaitlist = async (waitlistData) => {
+  const response = await api.post('/api/waitlist', waitlistData);
+  return response.data;
+};
+
+// Get patient's active and historical waitlist entries
+export const getMyWaitlist = async () => {
+  const response = await api.get('/api/waitlist/my');
+  return response.data;
+};
+
+// Get doctor's waitlist queue ranked by priority score
+export const getDoctorWaitlist = async () => {
+  const response = await api.get('/api/waitlist/doctor/my');
+  return response.data;
+};
+
+// Leave waitlist (Patient only)
+export const leaveWaitlist = async (waitlistId) => {
+  const response = await api.put(`/api/waitlist/${waitlistId}/leave`);
+  return response.data;
+};
+
+// Trigger smart allocation demonstration (Admin/Doctor)
+export const triggerSmartAllocation = async (allocationData) => {
+  const response = await api.post('/api/waitlist/allocate', allocationData);
+  return response.data;
+};
+
 export default api;

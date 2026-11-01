@@ -66,6 +66,12 @@ function Navbar() {
                 >
                   My Appointments
                 </Link>
+                <Link
+                  to="/waitlist"
+                  className="text-sm font-medium text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md"
+                >
+                  Smart Waitlist
+                </Link>
               </>
             )}
 

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { getDoctors, getAvailableSlots, bookAppointment } from '../services/api';
+import { getDoctors, getAvailableSlots, bookAppointment, joinWaitlist } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../hooks/useSocket';
 
 function BookAppointmentPage() {
   const [searchParams] = useSearchParams();
@@ -28,6 +29,12 @@ function BookAppointmentPage() {
   // Clinical details
   const [priority, setPriority] = useState('MEDIUM');
   const [reason, setReason] = useState('');
+
+  // Waitlist form states (Phase 6)
+  const [showWaitlistForm, setShowWaitlistForm] = useState(false);
+  const [waitlistUrgency, setWaitlistUrgency] = useState('MEDIUM');
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistSuccess, setWaitlistSuccess] = useState(null);
 
   // Submission & feedback states
   const [submitting, setSubmitting] = useState(false);
@@ -98,6 +105,25 @@ function BookAppointmentPage() {
     }
   }, [selectedDoctorId, selectedDate]);
 
+  // Real-time Socket.IO: refresh slots when any appointment is booked or cancelled for this doctor
+  useSocket('appointment_created', (data) => {
+    if (!data?.doctorId || data.doctorId === selectedDoctorId) {
+      fetchSlots();
+    }
+  });
+
+  useSocket('appointment_cancelled', (data) => {
+    if (!data?.doctorId || data.doctorId === selectedDoctorId) {
+      fetchSlots();
+    }
+  });
+
+  useSocket('appointment_allocated', (data) => {
+    if (!data?.doctorId || data.doctorId === selectedDoctorId) {
+      fetchSlots();
+    }
+  });
+
   // 3. Handle appointment booking submission
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
@@ -143,6 +169,41 @@ function BookAppointmentPage() {
     }
   };
 
+  // Waitlist submission handler
+  const handleWaitlistSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedDoctorId) {
+      setFeedback({ type: 'error', message: 'Please select a doctor.' });
+      return;
+    }
+
+    setWaitlistSubmitting(true);
+    setFeedback({ type: '', message: '' });
+
+    try {
+      const payload = {
+        doctorId: selectedDoctorId,
+        medicalPriority: priority,
+        urgency: waitlistUrgency,
+        preferredDate: selectedDate,
+        notes: reason.trim() || 'Waiting for next available cancellation slot',
+      };
+
+      const res = await joinWaitlist(payload);
+      if (res?.success) {
+        setWaitlistSuccess(res.waitlist);
+        setShowWaitlistForm(false);
+      }
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        message: err.response?.data?.message || 'Failed to join waitlist. Please try again.',
+      });
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
       <Navbar />
@@ -162,6 +223,61 @@ function BookAppointmentPage() {
             Choose a specialist doctor, select your preferred date, pick an open consultation slot, and confirm.
           </p>
         </div>
+
+        {/* Waitlist Success Modal / Banner */}
+        {waitlistSuccess && (
+          <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-sm">
+            <div className="flex items-start gap-4">
+              <span className="text-3xl">🧠</span>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-blue-950">
+                  Added to Smart Priority Waitlist!
+                </h3>
+                <p className="text-xs text-blue-700 mt-1">
+                  You have been registered on the doctor's queue. When an appointment slot is cancelled or becomes available, the smart allocation engine will automatically assign the slot to the highest-scoring candidate.
+                </p>
+
+                <div className="mt-4 p-4 bg-white rounded-xl border border-blue-100 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-gray-400 block">Doctor:</span>
+                    <strong className="text-gray-800">
+                      {waitlistSuccess.doctor?.user?.name || selectedDoctor?.user?.name}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block">Initial Priority Score:</span>
+                    <strong className="text-blue-700 text-sm font-mono font-black">
+                      {waitlistSuccess.priorityScore} pts
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block">Medical Priority:</span>
+                    <strong className="text-gray-800">{waitlistSuccess.priority}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block">Status:</span>
+                    <strong className="text-amber-700">● {waitlistSuccess.status}</strong>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex gap-3">
+                  <Link
+                    to="/waitlist"
+                    className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+                  >
+                    View My Waitlist Status
+                  </Link>
+                  <button
+                    onClick={() => setWaitlistSuccess(null)}
+                    className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Success Modal / Banner */}
         {bookingSuccess && (
@@ -354,9 +470,100 @@ function BookAppointmentPage() {
                   <p className="text-xs text-gray-400">Checking doctor availability and generating slots...</p>
                 </div>
               ) : !slotsData || !slotsData.available || slotsData.slots.length === 0 ? (
-                <div className="p-6 text-center text-xs text-gray-500 bg-gray-50 rounded-xl border border-gray-200">
-                  <span className="text-2xl block mb-1">⏰</span>
-                  {slotsData?.message || 'No available slots found for the selected date.'}
+                <div className="p-6 text-center text-xs bg-amber-50/50 rounded-2xl border border-amber-200 space-y-3">
+                  <span className="text-3xl block">⏰</span>
+                  <h4 className="font-bold text-gray-800 text-sm">
+                    No Appointment Slots Available
+                  </h4>
+                  <p className="text-gray-500 max-w-md mx-auto">
+                    {slotsData?.message || 'All consultation slots for this date are currently fully booked or unavailable.'}
+                  </p>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowWaitlistForm(!showWaitlistForm)}
+                      className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition cursor-pointer"
+                    >
+                      {showWaitlistForm ? '✕ Cancel Waitlist Request' : '⚡ Join Smart Waitlist Queue'}
+                    </button>
+                  </div>
+
+                  {/* Inline Waitlist Form */}
+                  {showWaitlistForm && (
+                    <div className="mt-4 p-5 bg-white rounded-xl border border-gray-200 text-left space-y-4 shadow-sm animate-fadeIn">
+                      <div className="border-b border-gray-100 pb-2">
+                        <h5 className="font-bold text-gray-900 text-sm">
+                          Join {selectedDoctor?.user?.name}'s Priority Waitlist
+                        </h5>
+                        <p className="text-[11px] text-gray-400">
+                          Our rule-based allocation engine ranks patients by clinical severity, urgency, and wait time.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-1">
+                            Medical Priority
+                          </label>
+                          <select
+                            value={priority}
+                            onChange={(e) => setPriority(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg bg-white"
+                          >
+                            <option value="LOW">Low (Routine Checkup) — 10 pts</option>
+                            <option value="MEDIUM">Medium (Moderate Symptoms) — 20 pts</option>
+                            <option value="HIGH">High (Severe Discomfort) — 30 pts</option>
+                            <option value="CRITICAL">Critical (Urgent Intervention) — 40 pts</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-gray-700 mb-1">
+                            Clinical Urgency
+                          </label>
+                          <select
+                            value={waitlistUrgency}
+                            onChange={(e) => setWaitlistUrgency(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-lg bg-white"
+                          >
+                            <option value="LOW">Low (Flexible Timeline) — 5 pts</option>
+                            <option value="MEDIUM">Medium (Standard Outpatient) — 10 pts</option>
+                            <option value="HIGH">High (Same-Day Review Needed) — 15 pts</option>
+                            <option value="EMERGENCY">Emergency (Immediate Allocation) — 20 pts</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-gray-700 text-xs mb-1">
+                          Brief Symptoms / Reason
+                        </label>
+                        <input
+                          type="text"
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder="e.g. Chest pain with shortness of breath..."
+                          className="w-full px-3 py-2 border rounded-lg text-xs"
+                        />
+                      </div>
+
+                      <div className="pt-2 flex items-center justify-between">
+                        <span className="text-[11px] text-gray-500 font-mono">
+                          Base Score: <strong>{priority === 'CRITICAL' ? 40 : priority === 'HIGH' ? 30 : priority === 'MEDIUM' ? 20 : 10} + {waitlistUrgency === 'EMERGENCY' ? 20 : waitlistUrgency === 'HIGH' ? 15 : waitlistUrgency === 'MEDIUM' ? 10 : 5} pts</strong> (+1 pt / 30m wait)
+                        </span>
+
+                        <button
+                          type="button"
+                          disabled={waitlistSubmitting}
+                          onClick={handleWaitlistSubmit}
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition disabled:opacity-50"
+                        >
+                          {waitlistSubmitting ? 'Joining Queue...' : 'Confirm Join Waitlist'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 max-h-60 overflow-y-auto p-1">
@@ -440,6 +647,38 @@ function BookAppointmentPage() {
               </button>
             </div>
           </form>
+        </div>
+
+        {/* Explainable AI Section */}
+        <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-2xl p-6 shadow-md border border-blue-800 space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-300">
+            <span>⚖️ Transparency &amp; Medical Ethics</span>
+            <span>&bull;</span>
+            <span>Explainable AI</span>
+          </div>
+          <h3 className="text-base font-bold text-white">
+            How Smart Allocation Works
+          </h3>
+          <p className="text-xs text-blue-100 leading-relaxed">
+            "MediFlow AI uses a transparent priority scoring system to rank waitlisted patients based on medical priority, urgency, and waiting time. When a valid appointment slot becomes available, the system selects the highest-priority eligible patient."
+          </p>
+          <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="bg-white/10 p-3 rounded-xl border border-white/10">
+              <span className="text-[10px] text-blue-300 block font-semibold">1. Medical Priority</span>
+              <strong className="text-sm">10 to 40 pts</strong>
+              <p className="text-[10px] text-blue-200 mt-0.5">Based on clinical severity level (Low to Critical)</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-xl border border-white/10">
+              <span className="text-[10px] text-blue-300 block font-semibold">2. Clinical Urgency</span>
+              <strong className="text-sm">5 to 20 pts</strong>
+              <p className="text-[10px] text-blue-200 mt-0.5">Temporal sensitivity (Low to Emergency)</p>
+            </div>
+            <div className="bg-white/10 p-3 rounded-xl border border-white/10">
+              <span className="text-[10px] text-blue-300 block font-semibold">3. Waiting Time Bonus</span>
+              <strong className="text-sm">+1 pt / 30 mins</strong>
+              <p className="text-[10px] text-blue-200 mt-0.5">Capped at 30 pts (15 hrs) to prevent queue stagnation</p>
+            </div>
+          </div>
         </div>
       </main>
 

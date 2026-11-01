@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { getIO } = require('../config/socket');
 const {
   generateTimeSlots,
   getDayOfWeekFromDate,
@@ -354,6 +355,22 @@ const bookAppointment = async ({
     return newAppointment;
   });
 
+  // Real-time broadcast via Socket.IO
+  const io = getIO();
+  if (io) {
+    io.emit('appointment_created', {
+      appointmentId: appointment.id,
+      doctorId: appointment.doctorId,
+      patientId: appointment.patientId,
+      appointmentNumber: appointment.appointmentNumber,
+      appointmentDate: date,
+      startTime: appointment.slot?.startTime,
+      endTime: appointment.slot?.endTime,
+      priority: appointment.priority,
+      status: appointment.status,
+    });
+  }
+
   return appointment;
 };
 
@@ -547,6 +564,20 @@ const cancelAppointment = async (appointmentId, user) => {
     return cancelled;
   });
 
+  // Real-time broadcast via Socket.IO
+  const io = getIO();
+  if (io) {
+    io.emit('appointment_cancelled', {
+      appointmentId: updatedAppointment.id,
+      doctorId: updatedAppointment.doctorId,
+      patientId: updatedAppointment.patientId,
+      appointmentDate: updatedAppointment.appointmentDate,
+      startTime: updatedAppointment.slot?.startTime,
+      endTime: updatedAppointment.slot?.endTime,
+      status: 'CANCELLED',
+    });
+  }
+
   return updatedAppointment;
 };
 
@@ -604,6 +635,32 @@ const updateAppointmentStatus = async (appointmentId, userId, newStatus) => {
 
     return updated;
   });
+
+  // Real-time broadcast via Socket.IO
+  const io = getIO();
+  if (io) {
+    if (newStatus === 'CANCELLED') {
+      io.emit('appointment_cancelled', {
+        appointmentId: updatedAppointment.id,
+        doctorId: updatedAppointment.doctorId,
+        patientId: updatedAppointment.patientId,
+        appointmentDate: appointment.appointmentDate,
+        startTime: updatedAppointment.slot?.startTime,
+        endTime: updatedAppointment.slot?.endTime,
+        status: 'CANCELLED',
+      });
+    } else {
+      io.emit('appointment_status_changed', {
+        appointmentId: updatedAppointment.id,
+        doctorId: updatedAppointment.doctorId,
+        patientId: updatedAppointment.patientId,
+        status: newStatus,
+        appointmentDate: appointment.appointmentDate,
+        startTime: updatedAppointment.slot?.startTime,
+        endTime: updatedAppointment.slot?.endTime,
+      });
+    }
+  }
 
   return updatedAppointment;
 };

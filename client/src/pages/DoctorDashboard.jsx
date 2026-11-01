@@ -8,7 +8,10 @@ import {
   getDoctorPresence,
   updateDoctorSchedule,
   updateAppointmentStatus,
+  getDoctorWaitlist,
+  triggerSmartAllocation,
 } from '../services/api';
+import { useSocket } from '../hooks/useSocket';
 
 const DAYS_OF_WEEK = [
   'MONDAY',
@@ -25,6 +28,15 @@ function DoctorDashboard() {
   const [doctorData, setDoctorData] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [updatingApptId, setUpdatingApptId] = useState(null);
+  const [waitlistEntries, setWaitlistEntries] = useState([]);
+  const [showAllocateModal, setShowAllocateModal] = useState(false);
+  const [isAllocating, setIsAllocating] = useState(false);
+  const [allocationForm, setAllocationForm] = useState({
+    appointmentDate: new Date().toISOString().split('T')[0],
+    startTime: '10:00',
+    endTime: '10:30',
+  });
+  const [allocationResult, setAllocationResult] = useState(null);
   const [presenceLogs, setPresenceLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
@@ -95,6 +107,16 @@ function DoctorDashboard() {
         if (presenceData && presenceData.success) {
           setPresenceLogs(presenceData.data.history || []);
         }
+
+        // Fetch waitlist queue
+        try {
+          const waitlistData = await getDoctorWaitlist();
+          if (waitlistData?.success) {
+            setWaitlistEntries(waitlistData.waitlist || []);
+          }
+        } catch (wErr) {
+          console.warn('Waitlist fetch warning:', wErr);
+        }
       }
     } catch (err) {
       console.error('Failed to load doctor dashboard:', err);
@@ -110,6 +132,31 @@ function DoctorDashboard() {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Real-time Socket.IO listeners: refresh doctor dashboard when appointments or waitlist change
+  useSocket('appointment_created', (data) => {
+    if (!data?.doctorId || data.doctorId === doctorData?.id) {
+      loadDashboardData();
+    }
+  });
+
+  useSocket('appointment_cancelled', (data) => {
+    if (!data?.doctorId || data.doctorId === doctorData?.id) {
+      loadDashboardData();
+    }
+  });
+
+  useSocket('waitlist_updated', (data) => {
+    if (!data?.doctorId || data.doctorId === doctorData?.id) {
+      loadDashboardData();
+    }
+  });
+
+  useSocket('appointment_allocated', (data) => {
+    if (!data?.doctorId || data.doctorId === doctorData?.id) {
+      loadDashboardData();
+    }
+  });
 
   // Quick Presence Status Update Handler
   const handlePresenceChange = async (newStatus) => {
@@ -169,6 +216,48 @@ function DoctorDashboard() {
       });
     } finally {
       setUpdatingApptId(null);
+    }
+  };
+
+  // Smart Allocation Handler (Phase 6)
+  const handleRunAllocation = async (e) => {
+    e.preventDefault();
+    if (!doctorData?.id) return;
+    setIsAllocating(true);
+    setActionMessage({ type: '', text: '' });
+    setAllocationResult(null);
+
+    try {
+      const res = await triggerSmartAllocation({
+        doctorId: doctorData.id,
+        appointmentDate: allocationForm.appointmentDate,
+        startTime: allocationForm.startTime,
+        endTime: allocationForm.endTime || '10:30',
+      });
+
+      if (res?.success) {
+        if (res.allocated) {
+          setActionMessage({
+            type: 'success',
+            text: `Slot successfully allocated to highest-priority patient: ${res.selectedPatient.name} (Priority Score: ${res.priorityScore} pts)!`,
+          });
+          setAllocationResult(res);
+          setShowAllocateModal(false);
+          loadDashboardData();
+        } else {
+          setActionMessage({
+            type: 'warning',
+            text: res.message || 'No eligible waitlist candidates found for this slot.',
+          });
+        }
+      }
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err.response?.data?.message || 'Smart allocation failed.',
+      });
+    } finally {
+      setIsAllocating(false);
     }
   };
 
@@ -494,6 +583,239 @@ function DoctorDashboard() {
             </div>
           )}
         </div>
+
+        {/* Smart Waitlist Queue Section (Phase 6) */}
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🧠</span>
+                <h2 className="text-base font-bold text-gray-900">
+                  Smart Waitlist Queue
+                </h2>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase">
+                  Rule-Based AI Allocation
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Patients ranked deterministically by Medical Severity (10-40), Urgency (5-20), and Waiting Time (+1 pt/30m).
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAllocateModal(true)}
+              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+            >
+              <span>⚡</span>
+              <span>Demonstrate Smart Allocation</span>
+            </button>
+          </div>
+
+          {waitlistEntries.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-xs">
+              <span className="text-2xl block mb-1">📋</span>
+              No patients currently waiting in this doctor's waitlist queue.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
+                    <th className="pb-2">Rank</th>
+                    <th className="pb-2">Patient</th>
+                    <th className="pb-2">Priority Score</th>
+                    <th className="pb-2">Medical Severity</th>
+                    <th className="pb-2">Clinical Urgency</th>
+                    <th className="pb-2">Joined Time</th>
+                    <th className="pb-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {waitlistEntries.map((entry, idx) => {
+                    const score = entry.currentScore || entry.priorityScore || 0;
+                    const isPending = entry.status === 'PENDING';
+
+                    return (
+                      <tr
+                        key={entry.id}
+                        className={`hover:bg-gray-50/60 transition ${
+                          entry.status === 'ALLOCATED' ? 'bg-green-50/30' : ''
+                        }`}
+                      >
+                        <td className="py-3 font-mono font-bold text-gray-400">
+                          {isPending ? `#${idx + 1}` : '—'}
+                        </td>
+                        <td className="py-3">
+                          <p className="font-semibold text-gray-800">
+                            {entry.patient?.user?.name || 'Waitlisted Patient'}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            {entry.patient?.user?.phone || 'No phone'}
+                          </p>
+                        </td>
+                        <td className="py-3">
+                          <span className="font-mono font-bold text-indigo-700 text-sm bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200">
+                            {score} pts
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              entry.priority === 'EMERGENCY' || entry.priority === 'CRITICAL'
+                                ? 'bg-red-100 text-red-800'
+                                : entry.priority === 'HIGH'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {entry.priority}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              entry.urgency === 'EMERGENCY'
+                                ? 'bg-red-100 text-red-800'
+                                : entry.urgency === 'HIGH'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {entry.urgency}
+                          </span>
+                        </td>
+                        <td className="py-3 text-[11px] text-gray-500">
+                          {new Date(entry.createdAt).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              entry.status === 'ALLOCATED'
+                                ? 'bg-green-100 text-green-800 border border-green-200'
+                                : entry.status === 'PENDING'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            ● {entry.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Smart Allocation Modal (Phase 6 Demonstration) */}
+        {showAllocateModal && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-100 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⚡</span>
+                  <h3 className="text-base font-bold text-gray-900">
+                    Smart Allocation Trigger
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowAllocateModal(false)}
+                  className="text-gray-400 hover:text-gray-600 text-sm font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500">
+                Specify an available time slot. The smart allocation engine will automatically
+                evaluate the waitlist, pick the patient with the highest clinical score, create
+                the appointment, and mark their waitlist entry as ALLOCATED.
+              </p>
+
+              <form onSubmit={handleRunAllocation} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Slot Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={allocationForm.appointmentDate}
+                    onChange={(e) =>
+                      setAllocationForm({
+                        ...allocationForm,
+                        appointmentDate: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={allocationForm.startTime}
+                      onChange={(e) =>
+                        setAllocationForm({
+                          ...allocationForm,
+                          startTime: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={allocationForm.endTime}
+                      onChange={(e) =>
+                        setAllocationForm({
+                          ...allocationForm,
+                          endTime: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 flex justify-end gap-2 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllocateModal(false)}
+                    className="px-4 py-2 border rounded-lg font-medium text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAllocating}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50"
+                  >
+                    {isAllocating ? 'Allocating...' : 'Execute Allocation'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* 2-Column Section: Schedule & Presence History */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

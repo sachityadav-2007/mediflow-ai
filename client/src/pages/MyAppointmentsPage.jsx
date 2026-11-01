@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getPatientAppointments, cancelAppointment } from '../services/api';
+import { useSocket } from '../hooks/useSocket';
 
 function MyAppointmentsPage() {
   const [appointments, setAppointments] = useState([]);
@@ -31,6 +32,12 @@ function MyAppointmentsPage() {
   useEffect(() => {
     fetchAppointments();
   }, []);
+
+  // Real-time Socket.IO: refresh patient appointments automatically
+  useSocket('appointment_created', () => fetchAppointments());
+  useSocket('appointment_cancelled', () => fetchAppointments());
+  useSocket('appointment_allocated', () => fetchAppointments());
+  useSocket('appointment_status_changed', () => fetchAppointments());
 
   const handleCancel = async (id, apptNumber) => {
     const confirmed = window.confirm(

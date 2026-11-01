@@ -9,6 +9,7 @@ import DoctorDashboard from './pages/DoctorDashboard';
 import PatientDashboard from './pages/PatientDashboard';
 import BookAppointmentPage from './pages/BookAppointmentPage';
 import MyAppointmentsPage from './pages/MyAppointmentsPage';
+import PatientWaitlistPage from './pages/PatientWaitlistPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -36,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['PATIENT']}>
                 <MyAppointmentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/waitlist"
+            element={
+              <ProtectedRoute allowedRoles={['PATIENT']}>
+                <PatientWaitlistPage />
               </ProtectedRoute>
             }
           />

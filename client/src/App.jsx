@@ -52,7 +52,39 @@ function App() {
             path="/admin/dashboard"
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
-                <AdminDashboard />
+                <AdminDashboard initialTab="overview" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/doctors"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard initialTab="doctors" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/patients"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard initialTab="patients" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/appointments"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard initialTab="appointments" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/waitlist"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard initialTab="waitlist" />
               </ProtectedRoute>
             }
           />

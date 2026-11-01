@@ -187,4 +187,44 @@ export const triggerSmartAllocation = async (allocationData) => {
   return response.data;
 };
 
+// -----------------------------------------------------------------------------
+// Admin Analytics & Oversight Services (Phase 8)
+// -----------------------------------------------------------------------------
+
+// Fetch hospital-wide statistics (Admin only)
+export const getAdminStats = async () => {
+  const response = await api.get('/api/admin/stats');
+  return response.data;
+};
+
+// Fetch all doctors with presence and metrics (Admin only)
+export const getAdminDoctors = async () => {
+  const response = await api.get('/api/admin/doctors');
+  return response.data;
+};
+
+// Fetch single doctor's complete admin profile, schedule, and logs
+export const getAdminDoctorDetails = async (doctorId) => {
+  const response = await api.get(`/api/admin/doctors/${doctorId}`);
+  return response.data;
+};
+
+// Fetch registered patients directory (Admin only)
+export const getAdminPatients = async () => {
+  const response = await api.get('/api/admin/patients');
+  return response.data;
+};
+
+// Fetch hospital appointments with optional status, doctorId, date filters
+export const getAdminAppointments = async (params = {}) => {
+  const response = await api.get('/api/admin/appointments', { params });
+  return response.data;
+};
+
+// Fetch hospital waitlist with optional status filter
+export const getAdminWaitlist = async (params = {}) => {
+  const response = await api.get('/api/admin/waitlist', { params });
+  return response.data;
+};
+
 export default api;

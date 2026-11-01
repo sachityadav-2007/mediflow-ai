@@ -75,6 +75,41 @@ function Navbar() {
               </>
             )}
 
+            {user?.role === 'ADMIN' && (
+              <>
+                <Link
+                  to="/admin/dashboard"
+                  className="text-sm font-medium text-gray-600 hover:text-purple-600 px-2.5 py-2 rounded-md"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/admin/doctors"
+                  className="text-sm font-medium text-gray-600 hover:text-purple-600 px-2.5 py-2 rounded-md"
+                >
+                  Doctors
+                </Link>
+                <Link
+                  to="/admin/patients"
+                  className="text-sm font-medium text-gray-600 hover:text-purple-600 px-2.5 py-2 rounded-md"
+                >
+                  Patients
+                </Link>
+                <Link
+                  to="/admin/appointments"
+                  className="text-sm font-medium text-gray-600 hover:text-purple-600 px-2.5 py-2 rounded-md"
+                >
+                  Appointments
+                </Link>
+                <Link
+                  to="/admin/waitlist"
+                  className="text-sm font-medium text-gray-600 hover:text-purple-600 px-2.5 py-2 rounded-md"
+                >
+                  Waitlist
+                </Link>
+              </>
+            )}
+
             {user ? (
               <>
                 <Link

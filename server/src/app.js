@@ -8,6 +8,7 @@ const doctorRoutes = require('./routes/doctor.routes');
 const presenceRoutes = require('./routes/presence.routes');
 const appointmentRoutes = require('./routes/appointment.routes');
 const waitlistRoutes = require('./routes/waitlist.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/presence', presenceRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/waitlist', waitlistRoutes);
+app.use('/api/admin', adminRoutes);
 
 module.exports = app;
 

@@ -110,33 +110,33 @@ function Navbar() {
               </>
             )}
 
+            {user && user.role !== 'ADMIN' && (
+              <Link
+                to={getDashboardPath(user.role)}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-2 rounded-md bg-blue-50"
+              >
+                Dashboard
+              </Link>
+            )}
+
             {user ? (
-              <>
-                <Link
-                  to={getDashboardPath(user.role)}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-2 rounded-md bg-blue-50"
-                >
-                  Dashboard
-                </Link>
-
-                <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-xs font-semibold text-gray-800">
-                      {user.name}
-                    </p>
-                    <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-700 uppercase">
-                      {user.role}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={handleLogout}
-                    className="ml-2 text-xs font-semibold px-3 py-2 rounded-lg bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-200 transition"
-                  >
-                    Logout
-                  </button>
+              <div className="flex items-center gap-2 pl-2 border-l border-gray-200">
+                <div className="text-right hidden sm:block">
+                  <p className="text-xs font-semibold text-gray-800">
+                    {user.name}
+                  </p>
+                  <span className="inline-block px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-700 uppercase">
+                    {user.role}
+                  </span>
                 </div>
-              </>
+
+                <button
+                  onClick={handleLogout}
+                  className="ml-2 text-xs font-semibold px-3 py-2 rounded-lg bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-200 transition"
+                >
+                  Logout
+                </button>
+              </div>
             ) : (
               <>
                 <Link

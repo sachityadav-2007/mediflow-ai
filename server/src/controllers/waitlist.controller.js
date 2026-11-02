@@ -124,18 +124,23 @@ const allocateSlot = async (req, res) => {
   try {
     const { doctorId, appointmentDate, startTime, endTime } = req.body;
 
-    if (!doctorId || !appointmentDate || !startTime) {
+    if (!doctorId) {
       return res.status(400).json({
         success: false,
-        message: 'doctorId, appointmentDate, and startTime are required for slot allocation.',
+        message: 'doctorId is required for slot allocation.',
       });
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetDate = appointmentDate || todayStr;
+    const targetStart = startTime || '10:00';
+    const targetEnd = endTime || '10:30';
+
     const result = await smartAllocateSlot({
       doctorId,
-      appointmentDate,
-      startTime,
-      endTime,
+      appointmentDate: targetDate,
+      startTime: targetStart,
+      endTime: targetEnd,
     });
 
     return res.status(200).json(result);

@@ -682,8 +682,8 @@ function BookAppointmentPage() {
         </div>
       </main>
 
-      <footer className="text-center py-4 text-xs text-gray-400">
-        MediFlow AI &copy; Smart Hospital Appointment System &bull; Phase 5 Slot Booking
+      <footer className="text-center py-4 text-xs text-gray-400 bg-white border-t border-gray-100">
+        MediFlow AI &copy; Smart Hospital Appointment &amp; Doctor Availability Management System
       </footer>
     </div>
   );

@@ -310,6 +310,7 @@ async function main() {
       doctorId: doctor1.id,
       preferredDate: today,
       priority: 'HIGH',
+      urgency: 'HIGH',
       priorityScore: 85,
       status: 'PENDING',
       notes: 'Requires early cardiology slot if any existing appointment cancels',

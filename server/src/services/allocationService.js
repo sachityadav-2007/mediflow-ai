@@ -13,13 +13,18 @@ const smartAllocateSlot = async ({
   startTime,
   endTime,
 }) => {
-  if (!doctorId || !appointmentDate || !startTime) {
-    throw new Error('doctorId, appointmentDate, and startTime are required for slot allocation.');
+  if (!doctorId) {
+    throw new Error('doctorId is required for slot allocation.');
   }
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const targetDate = appointmentDate || todayStr;
+  const targetStart = startTime || '10:00';
+  const targetEnd = endTime || '10:30';
+
   // Normalize date
-  const startOfDay = new Date(`${appointmentDate}T00:00:00.000Z`);
-  const endOfDay = new Date(`${appointmentDate}T23:59:59.999Z`);
+  const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
+  const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
 
   // 1. Verify doctor exists
   const doctor = await prisma.doctor.findUnique({
@@ -201,20 +206,38 @@ const smartAllocateSlot = async ({
       if (slot.status === 'BOOKED') {
         throw new Error('Appointment slot is already booked.');
       }
-      slot = await tx.appointmentSlot.update({
-        where: { id: slot.id },
-        data: {
-          status: 'BOOKED',
-          endTime: endTime || slot.endTime,
-        },
+
+      // Check if slot was previously attached to a cancelled appointment
+      const existingApptOnSlot = await tx.appointment.findUnique({
+        where: { slotId: slot.id },
       });
+
+      if (existingApptOnSlot) {
+        slot = await tx.appointmentSlot.create({
+          data: {
+            doctorId,
+            slotDate: startOfDay,
+            startTime,
+            endTime: targetEnd || '10:30',
+            status: 'BOOKED',
+          },
+        });
+      } else {
+        slot = await tx.appointmentSlot.update({
+          where: { id: slot.id },
+          data: {
+            status: 'BOOKED',
+            endTime: targetEnd || slot.endTime,
+          },
+        });
+      }
     } else {
       slot = await tx.appointmentSlot.create({
         data: {
           doctorId,
           slotDate: startOfDay,
           startTime,
-          endTime: endTime || '10:30',
+          endTime: targetEnd || '10:30',
           status: 'BOOKED',
         },
       });

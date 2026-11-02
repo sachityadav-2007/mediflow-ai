@@ -300,13 +300,36 @@ const bookAppointment = async ({
       if (slot.status === 'BOOKED') {
         throw new Error('This time slot is already booked. Please choose another slot.');
       }
-      slot = await tx.appointmentSlot.update({
-        where: { id: slot.id },
-        data: {
-          status: 'BOOKED',
-          endTime: calculatedEndTime,
-        },
+
+      // Check if this slot was previously attached to an existing appointment (e.g. cancelled)
+      // Because Appointment.slotId is @unique, we cannot assign the same slot.id to a second Appointment
+      const existingApptOnSlot = await tx.appointment.findUnique({
+        where: { slotId: slot.id },
       });
+
+      if (existingApptOnSlot) {
+        if (existingApptOnSlot.status !== 'CANCELLED') {
+          throw new Error('This time slot is already booked. Please choose another slot.');
+        }
+        // Slot was freed from a cancelled appointment. Create a new slot to satisfy unique constraint.
+        slot = await tx.appointmentSlot.create({
+          data: {
+            doctorId,
+            slotDate: startOfDay,
+            startTime,
+            endTime: calculatedEndTime,
+            status: 'BOOKED',
+          },
+        });
+      } else {
+        slot = await tx.appointmentSlot.update({
+          where: { id: slot.id },
+          data: {
+            status: 'BOOKED',
+            endTime: calculatedEndTime,
+          },
+        });
+      }
     } else {
       slot = await tx.appointmentSlot.create({
         data: {

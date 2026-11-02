@@ -11,11 +11,13 @@ import BookAppointmentPage from './pages/BookAppointmentPage';
 import MyAppointmentsPage from './pages/MyAppointmentsPage';
 import PatientWaitlistPage from './pages/PatientWaitlistPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <ScrollToTop />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />

@@ -54,7 +54,7 @@ function HomePage() {
                 to={getDashboardPath(user.role)}
                 className="px-6 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-sm rounded-xl border border-indigo-200 transition"
               >
-                Go to {user.role.toLowerCase()} Dashboard &rarr;
+                Go to {user.role === 'ADMIN' ? 'Admin' : user.role === 'DOCTOR' ? 'Doctor' : 'Patient'} Dashboard &rarr;
               </Link>
             ) : (
               <>

@@ -29,7 +29,11 @@ function Navbar() {
         <div className="flex justify-between h-16">
           {/* Brand */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2">
+            <Link
+              to="/"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="flex items-center gap-2"
+            >
               <span className="text-2xl">🏥</span>
               <span className="font-extrabold text-xl text-blue-700 tracking-tight">
                 MediFlow AI
@@ -41,6 +45,7 @@ function Navbar() {
           <div className="flex items-center gap-3">
             <Link
               to="/"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="text-sm font-medium text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md"
             >
               Home

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance with the backend base URL and credentials enabled
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
   timeout: 8000,
   withCredentials: true, // Enables sending and receiving HTTP-only cookies
   headers: {

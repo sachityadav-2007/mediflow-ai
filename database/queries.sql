@@ -65,3 +65,4 @@ JOIN users pu ON p."userId" = pu.id
 JOIN doctors d ON w."doctorId" = d.id
 JOIN users du ON d."userId" = du.id
 ORDER BY w."priorityScore" DESC, w."joinedAt" ASC;
+

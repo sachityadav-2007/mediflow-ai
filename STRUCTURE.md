@@ -118,3 +118,4 @@ npm run db:seed
 # 7. Database: Open visual web browser
 npm run db:studio
 ```
+

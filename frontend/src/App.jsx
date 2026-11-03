@@ -10,6 +10,9 @@ import PatientDashboard from './pages/PatientDashboard';
 import BookAppointmentPage from './pages/BookAppointmentPage';
 import MyAppointmentsPage from './pages/MyAppointmentsPage';
 import PatientWaitlistPage from './pages/PatientWaitlistPage';
+import LiveQueuePage from './pages/LiveQueuePage';
+import ReceptionCheckInPage from './pages/ReceptionCheckInPage';
+import DoctorAttendancePage from './pages/DoctorAttendancePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -22,10 +25,19 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/doctors" element={<DoctorDirectoryPage />} />
+          <Route path="/queue/:doctorId" element={<LiveQueuePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Protected Role-Based Routes */}
+          <Route
+            path="/check-in"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'DOCTOR']}>
+                <ReceptionCheckInPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/book"
             element={
@@ -91,10 +103,34 @@ function App() {
             }
           />
           <Route
+            path="/admin/ai-analytics"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard initialTab="ai-analytics" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/attendance"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard initialTab="attendance" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/doctor/dashboard"
             element={
               <ProtectedRoute allowedRoles={['DOCTOR']}>
                 <DoctorDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/doctor/attendance"
+            element={
+              <ProtectedRoute allowedRoles={['DOCTOR']}>
+                <DoctorAttendancePage />
               </ProtectedRoute>
             }
           />

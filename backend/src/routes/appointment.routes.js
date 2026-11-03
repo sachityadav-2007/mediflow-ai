@@ -7,6 +7,7 @@ const {
   getTodayDoctorAppointments,
   cancelAppointment,
   updateAppointmentStatus,
+  rescheduleAppointment,
 } = require('../controllers/appointment.controller');
 const {
   authenticateUser,
@@ -44,6 +45,9 @@ router.get('/doctor/today', authenticateUser, authorizeRoles('DOCTOR'), getToday
 // -----------------------------------------------------------------------------
 // Cancel appointment (Patient owner or Doctor owner)
 router.put('/:id/cancel', authenticateUser, cancelAppointment);
+
+// Reschedule appointment (Patient owner, Doctor owner, or Admin) — Phase 10
+router.put('/:id/reschedule', authenticateUser, rescheduleAppointment);
 
 // Update appointment status (DOCTOR only)
 router.put('/:id/status', authenticateUser, authorizeRoles('DOCTOR'), updateAppointmentStatus);

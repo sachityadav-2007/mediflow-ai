@@ -205,6 +205,52 @@ const updateAppointmentStatus = async (req, res) => {
   }
 };
 
+/**
+ * PUT /api/appointments/:id/reschedule
+ * Reschedule an existing appointment to a new date and discrete slot (Phase 10)
+ */
+const rescheduleAppointment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newDate, newStartTime, newEndTime, reason } = req.body;
+
+    if (!newDate || !newStartTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'newDate (YYYY-MM-DD) and newStartTime (HH:MM) are required to reschedule.',
+      });
+    }
+
+    const result = await appointmentService.rescheduleAppointment(id, req.user, {
+      newDate,
+      newStartTime,
+      newEndTime,
+      reason,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Appointment rescheduled successfully.',
+      ...result,
+    });
+  } catch (error) {
+    console.error('Error in rescheduleAppointment:', error.message);
+    const isConflict =
+      error.message.includes('already booked') ||
+      error.message.includes('already have an appointment') ||
+      error.message.includes('already have another active appointment');
+    const isUnauthorized = error.message.includes('Unauthorized');
+    const isNotFound = error.message.includes('not found');
+
+    const statusCode = isConflict ? 409 : isUnauthorized ? 403 : isNotFound ? 404 : 400;
+
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || 'Failed to reschedule appointment.',
+    });
+  }
+};
+
 module.exports = {
   getAvailableSlots,
   bookAppointment,
@@ -213,5 +259,6 @@ module.exports = {
   getTodayDoctorAppointments,
   cancelAppointment,
   updateAppointmentStatus,
+  rescheduleAppointment,
 };
 

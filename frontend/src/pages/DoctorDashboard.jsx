@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -10,6 +11,8 @@ import {
   updateAppointmentStatus,
   getDoctorWaitlist,
   triggerSmartAllocation,
+  getDoctorForecast,
+  updateConsultationState,
 } from '../services/api';
 import { useSocket } from '../hooks/useSocket';
 
@@ -38,6 +41,7 @@ function DoctorDashboard() {
   });
   const [allocationResult, setAllocationResult] = useState(null);
   const [presenceLogs, setPresenceLogs] = useState([]);
+  const [doctorForecast, setDoctorForecast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState({ type: '', text: '' });
 
@@ -117,6 +121,16 @@ function DoctorDashboard() {
         } catch (wErr) {
           console.warn('Waitlist fetch warning:', wErr);
         }
+
+        // Fetch AI doctor forecast (Phase 10)
+        try {
+          const aiData = await getDoctorForecast(doc.id);
+          if (aiData?.success) {
+            setDoctorForecast(aiData);
+          }
+        } catch (aiErr) {
+          console.warn('AI forecast fetch notice:', aiErr.message);
+        }
       }
     } catch (err) {
       console.error('Failed to load doctor dashboard:', err);
@@ -153,6 +167,18 @@ function DoctorDashboard() {
   });
 
   useSocket('appointment_allocated', (data) => {
+    if (!data?.doctorId || data.doctorId === doctorData?.id) {
+      loadDashboardData();
+    }
+  });
+
+  useSocket('appointment_rescheduled', (data) => {
+    if (!data?.doctorId || data.doctorId === doctorData?.id) {
+      loadDashboardData();
+    }
+  });
+
+  useSocket('ai_forecast_updated', (data) => {
     if (!data?.doctorId || data.doctorId === doctorData?.id) {
       loadDashboardData();
     }
@@ -213,6 +239,39 @@ function DoctorDashboard() {
       setActionMessage({
         type: 'error',
         text: err.response?.data?.message || 'Failed to update appointment status.',
+      });
+    } finally {
+      setUpdatingApptId(null);
+    }
+  };
+
+  // Phase 11: Quick Consultation Lifecycle Action (START, COMPLETE, NO_SHOW)
+  const handleConsultationAction = async (apptId, action) => {
+    setUpdatingApptId(apptId);
+    setActionMessage({ type: '', text: '' });
+    try {
+      const res = await updateConsultationState(apptId, action);
+      if (res && res.success) {
+        const nextStatus =
+          action === 'START'
+            ? 'IN_PROGRESS'
+            : action === 'COMPLETE'
+            ? 'COMPLETED'
+            : 'NO_SHOW';
+        setActionMessage({
+          type: 'success',
+          text: `Consultation marked as ${nextStatus}. OPD live queue updated.`,
+        });
+        setAppointments((prev) =>
+          prev.map((a) => (a.id === apptId ? { ...a, status: nextStatus } : a))
+        );
+        if (action === 'START') setCurrentStatus('IN_CONSULTATION');
+        if (action === 'COMPLETE') setCurrentStatus('AVAILABLE');
+      }
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err.response?.data?.message || 'Failed to update consultation state.',
       });
     } finally {
       setUpdatingApptId(null);
@@ -414,9 +473,18 @@ function DoctorDashboard() {
                 Update your live clinic availability for patients and receptionists in real time.
               </p>
             </div>
-            <span className="text-xs text-gray-400">
-              Current: <strong className="text-gray-800">{currentStatus}</strong>
-            </span>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/doctor/attendance"
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+              >
+                <span>📷 QR Attendance</span>
+                <span className="text-[10px]">&rarr;</span>
+              </Link>
+              <span className="text-xs text-gray-400">
+                Current: <strong className="text-gray-800">{currentStatus}</strong>
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -474,6 +542,82 @@ function DoctorDashboard() {
           </div>
         </div>
 
+        {/* Phase 10: AI Predictive Demand & Schedule Insights */}
+        {doctorForecast && (
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🧠</span>
+                  <h2 className="text-base font-bold text-gray-900">
+                    AI Demand Forecasting &amp; Schedule Insights
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                    Phase 10 AI
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Predictive clinical load modeling and historical attendance reliability based on your consultation records.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-gray-500">
+                  Duty Attendance: <strong className="text-emerald-700 font-bold">{Math.round((doctorForecast.todayAvailability?.probability || 0.9) * 100)}%</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Projections Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 7-Day Forecast */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200/70 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-gray-700">
+                  <span>📅 Next 7 Days Projected Patient Visits</span>
+                  <span className="text-purple-700">
+                    Total: {doctorForecast.sevenDayForecast?.expectedTotalVolume || 0}
+                  </span>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {doctorForecast.sevenDayForecast?.dailyForecast?.map((day, idx) => (
+                    <div
+                      key={idx}
+                      className="p-1.5 rounded-lg bg-white border border-gray-200 text-[10px]"
+                    >
+                      <div className="font-bold text-gray-700">{day.dayOfWeek.slice(0, 3)}</div>
+                      <div className="text-xs font-black text-purple-700 mt-1">
+                        {day.expectedDemand}
+                      </div>
+                      <div className="text-[9px] text-gray-400">vis</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Peak Hours & Availability */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200/70 space-y-2.5 text-xs">
+                <div className="font-bold text-gray-700">⏰ High-Demand Consultation Slots</div>
+                <p className="text-[11px] text-gray-500">
+                  Based on historical booking patterns, your peak clinic rush hours are:
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {doctorForecast.slotDemandPatterns?.peakSlots?.map((slot, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 bg-red-50 text-red-800 border border-red-200 rounded-lg font-bold text-xs"
+                    >
+                      🔥 {slot}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 italic pt-1">
+                  Tip: Allocate extra buffer time around peak slots to minimize patient waiting queues.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Today's Appointments Section */}
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -485,9 +629,22 @@ function DoctorDashboard() {
                 Patients scheduled for consultation with live clinical status controls.
               </p>
             </div>
-            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
-              Total: {appointments.length}
-            </span>
+            <div className="flex items-center gap-2">
+              {doctorData?.id && (
+                <a
+                  href={`/queue/${doctorData.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition flex items-center gap-1.5"
+                >
+                  <span>📺 Live OPD Queue Board</span>
+                  <span className="text-[10px]">↗</span>
+                </a>
+              )}
+              <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
+                Total: {appointments.length}
+              </span>
+            </div>
           </div>
 
           {appointments.length === 0 ? (
@@ -547,7 +704,9 @@ function DoctorDashboard() {
                             apt.status === 'COMPLETED'
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                               : apt.status === 'IN_PROGRESS'
-                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                              ? 'bg-purple-100 text-purple-800 border border-purple-200 animate-pulse'
+                              : apt.status === 'CHECKED_IN'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
                               : apt.status === 'CONFIRMED'
                               ? 'bg-green-100 text-green-800 border border-green-200'
                               : apt.status === 'CANCELLED'
@@ -562,19 +721,46 @@ function DoctorDashboard() {
                         {apt.reason || 'General checkup'}
                       </td>
                       <td className="py-3">
-                        <select
-                          value={apt.status}
-                          disabled={updatingApptId === apt.id}
-                          onChange={(e) => handleStatusChange(apt.id, e.target.value)}
-                          className="px-2 py-1 text-[11px] font-medium rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-                        >
-                          <option value="SCHEDULED">SCHEDULED</option>
-                          <option value="CONFIRMED">CONFIRMED</option>
-                          <option value="IN_PROGRESS">IN_PROGRESS</option>
-                          <option value="COMPLETED">COMPLETED</option>
-                          <option value="CANCELLED">CANCELLED</option>
-                          <option value="NO_SHOW">NO_SHOW</option>
-                        </select>
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={apt.status}
+                            disabled={updatingApptId === apt.id}
+                            onChange={(e) => handleStatusChange(apt.id, e.target.value)}
+                            className="px-2 py-1 text-[11px] font-medium rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                          >
+                            <option value="SCHEDULED">SCHEDULED</option>
+                            <option value="CONFIRMED">CONFIRMED</option>
+                            <option value="CHECKED_IN">CHECKED_IN</option>
+                            <option value="IN_PROGRESS">IN_PROGRESS</option>
+                            <option value="COMPLETED">COMPLETED</option>
+                            <option value="CANCELLED">CANCELLED</option>
+                            <option value="NO_SHOW">NO_SHOW</option>
+                          </select>
+
+                          {/* Quick Consultation Lifecycle Buttons */}
+                          {apt.status === 'CHECKED_IN' && (
+                            <button
+                              type="button"
+                              onClick={() => handleConsultationAction(apt.id, 'START')}
+                              disabled={updatingApptId === apt.id}
+                              className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] rounded-lg shadow-2xs transition shrink-0 cursor-pointer"
+                              title="Call patient into cabin and start consultation"
+                            >
+                              ▶️ Call In
+                            </button>
+                          )}
+                          {apt.status === 'IN_PROGRESS' && (
+                            <button
+                              type="button"
+                              onClick={() => handleConsultationAction(apt.id, 'COMPLETE')}
+                              disabled={updatingApptId === apt.id}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg shadow-2xs transition shrink-0 cursor-pointer"
+                              title="Complete consultation and free cabin"
+                            >
+                              ✅ Complete
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

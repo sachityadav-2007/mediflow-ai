@@ -1,24 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
-import { getPatientAppointments, getMyWaitlist } from '../services/api';
+import {
+  getPatientAppointments,
+  getMyWaitlist,
+  getSmartSlotRecommendations,
+} from '../services/api';
 import { useSocket } from '../hooks/useSocket';
 
 function PatientDashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const profile = user?.patientProfile;
 
   const [appointments, setAppointments] = useState([]);
   const [waitlistEntries, setWaitlistEntries] = useState([]);
+  const [recommendedSlots, setRecommendedSlots] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [aptRes, wlRes] = await Promise.all([
+      const [aptRes, wlRes, recRes] = await Promise.all([
         getPatientAppointments().catch(() => ({ appointments: [] })),
         getMyWaitlist().catch(() => ({ waitlist: [] })),
+        getSmartSlotRecommendations({ limit: 4 }).catch(() => ({ recommendations: [] })),
       ]);
 
       if (aptRes?.appointments) {
@@ -26,6 +33,9 @@ function PatientDashboard() {
       }
       if (wlRes?.waitlist) {
         setWaitlistEntries(wlRes.waitlist);
+      }
+      if (recRes?.recommendations) {
+        setRecommendedSlots(recRes.recommendations);
       }
     } catch (err) {
       console.error('Failed to load patient dashboard records:', err);
@@ -38,11 +48,12 @@ function PatientDashboard() {
     fetchDashboardData();
   }, []);
 
-  // Real-time socket updates for patient appointments and waitlist
+  // Real-time socket updates for patient appointments, waitlist and AI updates
   useSocket('appointment_created', fetchDashboardData);
   useSocket('appointment_cancelled', fetchDashboardData);
   useSocket('appointment_allocated', fetchDashboardData);
   useSocket('waitlist_updated', fetchDashboardData);
+  useSocket('ai_forecast_updated', fetchDashboardData);
 
   const upcomingAppointments = appointments.filter(
     (a) => a.status === 'SCHEDULED' || a.status === 'CONFIRMED'
@@ -210,6 +221,88 @@ function PatientDashboard() {
             </p>
             <p className="text-xs text-green-600 font-semibold mt-2">Status: Active Patient Profile</p>
           </div>
+        </div>
+
+        {/* Phase 10: Smart AI Slot Recommendations */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4 mb-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">✨</span>
+                <h2 className="text-base sm:text-lg font-bold text-gray-900">
+                  Smart AI Appointment Recommendations
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                  AI Ranked
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Optimized open slots with highest doctor presence probability, minimal queue wait times, and off-peak comfort.
+              </p>
+            </div>
+            <Link
+              to="/book"
+              className="text-xs font-semibold text-teal-700 hover:text-teal-900 transition flex items-center gap-1"
+            >
+              Browse All Slots ➔
+            </Link>
+          </div>
+
+          {recommendedSlots.length === 0 ? (
+            <div className="py-8 text-center text-xs text-gray-400">
+              Analyzing doctor availability &amp; queue velocity patterns...
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {recommendedSlots.map((rec, idx) => (
+                <div
+                  key={idx}
+                  className="bg-gradient-to-b from-white to-teal-50/20 border border-gray-200 hover:border-teal-400 rounded-xl p-4 shadow-2xs hover:shadow-sm transition flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
+                        ⭐ AI Score: {rec.aiScore}/100
+                      </span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        {Math.round(rec.availabilityProbability * 100)}% Certainty
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-sm text-gray-900">{rec.doctorName}</h3>
+                      <p className="text-xs text-teal-700 font-medium">
+                        {rec.specialization} &bull; {rec.department}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 bg-gray-50 rounded-lg text-xs space-y-1 text-gray-600">
+                      <div>
+                        📅 <strong>{rec.date}</strong> ({rec.dayOfWeek.slice(0, 3)})
+                      </div>
+                      <div>
+                        ⏰ <strong>{rec.startTime} &ndash; {rec.endTime}</strong>
+                      </div>
+                      <div className="text-[11px] text-amber-800">
+                        ⏳ Est. Wait: <strong>~{rec.estimatedWaitMinutes} mins</strong> (Pos #{rec.queuePosition})
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-gray-500 leading-snug italic">
+                      "{rec.recommendationReason}"
+                    </p>
+                  </div>
+
+                  <Link
+                    to={`/book?doctorId=${rec.doctorId}&date=${rec.date}`}
+                    className="w-full py-2 px-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold text-center shadow-2xs transition block"
+                  >
+                    Select This Slot ➔
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Live Overview Sections: Upcoming Appointments & Active Waitlists */}

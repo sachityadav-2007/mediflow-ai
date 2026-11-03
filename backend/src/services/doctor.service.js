@@ -1,5 +1,6 @@
 const prisma = require('../config/db');
 const { getIO } = require('../config/socket');
+const { clearCache } = require('./ai/aiService');
 
 // Valid days of week for schedule verification
 const VALID_DAYS = [
@@ -423,6 +424,13 @@ const updateDoctorPresence = async (doctorId, status, notes = '') => {
       doctorId: result.doctorId,
       status: result.currentPresence,
       timestamp: result.log.timestamp,
+    });
+    // Invalidate AI prediction cache and notify listeners
+    clearCache();
+    io.emit('ai_forecast_updated', {
+      type: 'DOCTOR_PRESENCE_CHANGED',
+      doctorId: result.doctorId,
+      status: result.currentPresence,
     });
   }
 

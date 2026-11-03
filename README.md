@@ -40,8 +40,57 @@ By integrating automated slot generation, live clinician presence tracking, a tr
 
 ### 6. Event-Driven Real-Time Updates (Socket.IO)
 - Instant synchronization across all connected clients without manual page refreshes.
-- Broadcasts events for doctor status changes, appointment creations, cancellations, waitlist entries, and slot allocations.
+- Broadcasts events for doctor status changes, appointment creations, cancellations, waitlist entries, slot allocations, and AI forecast invalidations.
 - Graceful degradation: The application operates seamlessly via standard REST APIs if WebSockets disconnect.
+
+### 7. Appointment Rescheduling & Automatic Waitlist Allocation
+- Patients can atomically reschedule appointments to a new date and discrete consultation slot.
+- Atomic conflict validation prevents double-booking and overlapping schedules.
+- Full audit history recorded inside appointment notes.
+- Freed original time slots are automatically triaged and allocated to eligible waitlist patients.
+
+### 8. AI-Powered Doctor Availability Prediction & Smart Scheduling Engine
+- Dynamic Bayesian likelihood estimation forecasting doctor availability probability.
+- 7-day rolling patient consultation demand forecasting across hospital departments.
+- Consultation wait-time estimation engine with multi-factor scoring (Historical duration + active queue depth + clinician pace).
+- Multi-objective Candidate Slot Recommendation scoring based on availability confidence, workload balance, convenience, and cancellation hazard.
+
+### 9. QR-Based Patient Check-In & Live OPD Consultation Queue
+- Unique, cryptographically signed, time-limited QR tokens minted for each confirmed booking.
+- Reception and clinic door camera scanner (`html5-qrcode`) for seamless physical check-in.
+- Anti-replay and duplicate check-in prevention updating appointment status to `CHECKED_IN`.
+- Real-time public and patient-facing OPD consultation queue with estimated wait time tracking.
+- Doctor consultation status lifecycle (`SCHEDULED` -> `CHECKED_IN` -> `IN_PROGRESS` -> `COMPLETED`).
+- Automated email confirmations, reminders, cancellations, and rescheduling notices via Nodemailer.
+
+### 10. QR Doctor Attendance & Physical Verification
+- Cryptographically signed hospital attendance QR codes generated and managed by hospital administrators.
+- In-browser camera scanning for attending clinicians (`/doctor/attendance`).
+- Real-time doctor availability status transition to `PRESENT` upon verified check-in.
+- Session checkout computation of working shift duration and audit logs.
+- Comprehensive sliding-window rate limiting, anti-replay, and anti-duplicate check-in protections.
+
+### 11. Apollo Hospitals-Grade UI & Specialist Directory
+- Visual and structural alignment with Apollo Hospitals' digital outpatient portal.
+- Multi-speciality sidebar filtering, city selection, experience filtering, and instant doctor search.
+- Verified specialist profiles featuring clinical portraits, degrees, experience, and consultation fees.
+- Instant 1-click `Book Appointment ↗` and OPD Cabin dialer (`📞 Call Now`) modals.
+
+### 8. AI-Powered Doctor Availability Prediction & Smart Scheduling (Phase 10)
+- **Doctor Availability Prediction (`/api/ai/doctor-availability`):** Predicts physician availability probability (0–100%) by analyzing recurring shift schedules, live presence state, historical attendance ratio, and cancellation rates.
+- **Appointment Demand Forecasting (`/api/ai/appointment-demand`):** 7-day rolling patient demand forecast, departmental market share analysis, and peak rush hour detection.
+- **Waiting Time Estimation (`/api/ai/waiting-time`):** Dynamic queue velocity modeling factoring pending patients ahead, emergency cases, and active consultation delays.
+- **Smart Slot Recommendations (`/api/ai/recommended-slots`):** Multi-factor explainable recommendation scoring (35% availability, 25% wait time, 20% off-peak comfort, 20% clinical seniority) with zero automatic booking overrides.
+- **Hospital Executive AI Dashboard:** Comprehensive capacity load indices, shift adherence reliability (88.4%), and persistent audit logging in PostgreSQL (`PredictionLog`).
+- Full technical documentation & college viva defense guide available in [`docs/AI_PREDICTION_ENGINE.md`](docs/AI_PREDICTION_ENGINE.md).
+
+### 9. QR Check-In, Live OPD Queue Displays & Email Notifications (Phase 11)
+- **QR-Based Patient Check-In:** Signed 48h JWT tokens converted to Base64 PNG QR passes. Displayed in patient digital pass and scanned via reception camera (`/check-in`) using `html5-qrcode`. Rejects duplicate arrivals, cancelled visits, and forged tokens.
+- **Live OPD Consultation Queue Board (`/queue/:doctorId`):** Public waiting room screen with patient confidentiality safeguards (automatic name masking, e.g. `Rahul V.***`). Live "Now in Cabin" banner, dynamic wait times, and real-time Socket.IO synchronization.
+- **Doctor Consultation Lifecycle Controls:** One-click "Call In" (`IN_PROGRESS`) and "Complete" (`COMPLETED`) actions automatically synchronizing physician presence (`IN_CONSULTATION` / `AVAILABLE`).
+- **Transactional Email System (Nodemailer):** Automated delivery of booking confirmations, rescheduling notices, cancellations, check-in arrivals, and configurable reminders with verified Ethereal development mailer and SMTP support.
+- **Apollo Hospitals-Grade Doctor Directory (`/doctors`):** High-definition physician portraits, Apollo Amber `#F5A623` booking buttons, direct OPD cabin helpline modals, profile sharing, and multi-criteria speciality/city accordions.
+- Full technical documentation & test results in [`docs/PHASE_11_REPORT.md`](docs/PHASE_11_REPORT.md).
 
 ---
 
@@ -227,6 +276,10 @@ npm run build
 
 # Open Prisma Studio (Visual Database Browser)
 npm run db:studio
+
+# Run Automated End-to-End Test Suites
+node scratch/test_phase10.js              # Rescheduling & Auto-Waitlist suite (21 tests)
+node scratch/test_ai_prediction_engine.js # AI Prediction & Smart Scheduling suite (28 tests)
 ```
 
 ---

@@ -10,6 +10,11 @@ import {
   getAdminAppointments,
   getAdminWaitlist,
   triggerSmartAllocation,
+  generateHospitalQR,
+  revokeHospitalQR,
+  getActiveHospitalQRCodes,
+  getQRScanActivity,
+  getAttendanceHistory,
 } from '../services/api';
 import { useSocket, useSocketStatus } from '../hooks/useSocket';
 
@@ -34,6 +39,7 @@ function AdminDashboard({ initialTab = 'overview' }) {
       patients: '/admin/patients',
       appointments: '/admin/appointments',
       waitlist: '/admin/waitlist',
+      attendance: '/admin/attendance',
     };
     navigate(routeMap[tabKey] || '/admin/dashboard');
   };
@@ -73,6 +79,20 @@ function AdminDashboard({ initialTab = 'overview' }) {
   // Search terms for local quick filtering
   const [doctorSearch, setDoctorSearch] = useState('');
   const [patientSearch, setPatientSearch] = useState('');
+
+  // Doctor Attendance & Hospital QR Management States
+  const [hospitalQRCodes, setHospitalQRCodes] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [qrScanAudits, setQrScanAudits] = useState([]);
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [newQRLocation, setNewQRLocation] = useState('Main Hospital OPD Suite - Ground Floor');
+  const [newQRValidity, setNewQRValidity] = useState(60);
+  const [generatingQR, setGeneratingQR] = useState(false);
+  const [revokingCodeId, setRevokingCodeId] = useState(null);
+  const [qrPreviewModal, setQrPreviewModal] = useState(null);
+  const [attendanceFilterDoctor, setAttendanceFilterDoctor] = useState('ALL');
+  const [attendanceFilterDate, setAttendanceFilterDate] = useState('');
+  const [attendanceFilterLocation, setAttendanceFilterLocation] = useState('');
 
   // Socket.IO Connection Status
   const isSocketConnected = useSocketStatus();
@@ -260,6 +280,90 @@ function AdminDashboard({ initialTab = 'overview' }) {
     fetchWaitlist();
   });
 
+  // Doctor Attendance & QR Data Fetcher
+  const fetchAttendanceData = useCallback(async () => {
+    setLoadingAttendance(true);
+    try {
+      const [qrsRes, attRes, scansRes] = await Promise.all([
+        getActiveHospitalQRCodes(),
+        getAttendanceHistory({
+          doctorId: attendanceFilterDoctor === 'ALL' ? undefined : attendanceFilterDoctor,
+          date: attendanceFilterDate || undefined,
+          location: attendanceFilterLocation || undefined,
+          limit: 30,
+        }),
+        getQRScanActivity(40),
+      ]);
+
+      if (qrsRes?.success) setHospitalQRCodes(qrsRes.qrCodes || []);
+      if (attRes?.success) setAttendanceRecords(attRes.records || []);
+      if (scansRes?.success) setQrScanAudits(scansRes.logs || []);
+    } catch (err) {
+      console.warn('Attendance data fetch notice:', err.message);
+    } finally {
+      setLoadingAttendance(false);
+    }
+  }, [attendanceFilterDoctor, attendanceFilterDate, attendanceFilterLocation]);
+
+  useEffect(() => {
+    if (activeTab === 'attendance') {
+      fetchAttendanceData();
+    }
+  }, [activeTab, fetchAttendanceData]);
+
+  useSocket('doctor_attendance_updated', (data) => {
+    showToast(
+      `⚡ Real-time: Dr. ${data?.doctorName || ''} attendance updated (${data?.action || ''})`,
+      'info'
+    );
+    fetchAttendanceData();
+    fetchStats();
+  });
+
+  useSocket('hospital_qr_created', () => {
+    fetchAttendanceData();
+  });
+
+  useSocket('hospital_qr_revoked', () => {
+    fetchAttendanceData();
+  });
+
+  const handleCreateHospitalQR = async (e) => {
+    e.preventDefault();
+    if (!newQRLocation.trim()) return;
+    setGeneratingQR(true);
+    try {
+      const res = await generateHospitalQR({
+        location: newQRLocation.trim(),
+        validityMinutes: parseInt(newQRValidity, 10),
+      });
+      if (res && res.success) {
+        showToast(`✓ Generated QR code for "${res.location}"`, 'success');
+        setQrPreviewModal(res);
+        fetchAttendanceData();
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to generate QR code.', 'error');
+    } finally {
+      setGeneratingQR(false);
+    }
+  };
+
+  const handleRevokeCode = async (codeId) => {
+    setRevokingCodeId(codeId);
+    try {
+      const res = await revokeHospitalQR(codeId);
+      if (res && res.success) {
+        showToast(res.message || 'QR code revoked.', 'success');
+        fetchAttendanceData();
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to revoke QR code.', 'error');
+    } finally {
+      setRevokingCodeId(null);
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // Helper Formatters
   // ---------------------------------------------------------------------------
@@ -408,6 +512,7 @@ function AdminDashboard({ initialTab = 'overview' }) {
             { key: 'patients', label: `🧑‍🤝‍🧑 Patients (${patients.length})` },
             { key: 'appointments', label: `📅 Appointments (${appointments.length})` },
             { key: 'waitlist', label: `⏳ Smart Waitlist (${waitlist.length})` },
+            { key: 'attendance', label: '📷 Attendance & QR' },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -1117,6 +1222,463 @@ function AdminDashboard({ initialTab = 'overview' }) {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB: DOCTOR ATTENDANCE & HOSPITAL QR MANAGEMENT                     */}
+        {/* =================================================================== */}
+        {activeTab === 'attendance' && (
+          <div className="space-y-6">
+            {/* Top KPI Summary Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+                <span className="text-xs uppercase tracking-wider text-gray-500 font-bold block">
+                  Active QR Gates
+                </span>
+                <strong className="text-2xl font-black text-purple-700 mt-1 block">
+                  {hospitalQRCodes.length}
+                </strong>
+                <span className="text-[11px] text-gray-400 mt-0.5 block">
+                  Active hospital scan locations
+                </span>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+                <span className="text-xs uppercase tracking-wider text-gray-500 font-bold block">
+                  Clinicians On Duty
+                </span>
+                <strong className="text-2xl font-black text-emerald-600 mt-1 block">
+                  {
+                    doctors.filter(
+                      (d) =>
+                        d.currentPresence === 'PRESENT' ||
+                        d.currentPresence === 'IN_CONSULTATION' ||
+                        d.currentPresence === 'AVAILABLE'
+                    ).length
+                  }
+                </strong>
+                <span className="text-[11px] text-emerald-700 mt-0.5 block font-semibold">
+                  ● Verified in hospital OPD
+                </span>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+                <span className="text-xs uppercase tracking-wider text-gray-500 font-bold block">
+                  Total Logged Sessions
+                </span>
+                <strong className="text-2xl font-black text-blue-700 mt-1 block">
+                  {attendanceRecords.length}
+                </strong>
+                <span className="text-[11px] text-gray-400 mt-0.5 block">
+                  Check-in / check-out history
+                </span>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
+                <span className="text-xs uppercase tracking-wider text-gray-500 font-bold block">
+                  QR Scan Audits
+                </span>
+                <strong className="text-2xl font-black text-indigo-700 mt-1 block">
+                  {qrScanAudits.length}
+                </strong>
+                <span className="text-[11px] text-gray-400 mt-0.5 block">
+                  Security verification events
+                </span>
+              </div>
+            </div>
+
+            {/* Two-Column: QR Generator Form & Active QR Gates */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+              {/* 1. Generate Hospital QR Code Form */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+                <div className="border-b pb-3 border-gray-100">
+                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <span>⚡ Generate Hospital Check-In QR Code</span>
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Generate short-lived cryptographic QR codes to be posted at OPD reception desks or clinical suites.
+                  </p>
+                </div>
+
+                <form onSubmit={handleCreateHospitalQR} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">
+                      Hospital Check-In Location
+                    </label>
+                    <select
+                      value={newQRLocation}
+                      onChange={(e) => setNewQRLocation(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                    >
+                      <option value="Main Hospital OPD Suite - Ground Floor">
+                        Main Hospital OPD Suite - Ground Floor
+                      </option>
+                      <option value="Apollo Wing - Block A (Cardio &amp; Neuro)">
+                        Apollo Wing - Block A (Cardio &amp; Neuro)
+                      </option>
+                      <option value="Emergency &amp; Trauma Center - Bay 1">
+                        Emergency &amp; Trauma Center - Bay 1
+                      </option>
+                      <option value="Oncology Center - Room 401">
+                        Oncology Center - Room 401
+                      </option>
+                      <option value="Nephrology &amp; Dialysis Unit - Room 310">
+                        Nephrology &amp; Dialysis Unit - Room 310
+                      </option>
+                      <option value="Urology &amp; Renal OPD - Room 302">
+                        Urology &amp; Renal OPD - Room 302
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">
+                      Token Validity Window
+                    </label>
+                    <select
+                      value={newQRValidity}
+                      onChange={(e) => setNewQRValidity(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                    >
+                      <option value="15">15 Minutes (High Security Shift Turnover)</option>
+                      <option value="30">30 Minutes</option>
+                      <option value="60">60 Minutes (Standard 1-Hour Shift Window)</option>
+                      <option value="240">4 Hours (Half-Day Clinical Session)</option>
+                      <option value="480">8 Hours (Full Working Day)</option>
+                      <option value="1440">24 Hours (Full-Day Triage Gateway)</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={generatingQR}
+                    className="w-full py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {generatingQR ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Generating Secure QR...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Generate &amp; Display Hospital QR</span>
+                        <span>&rarr;</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              {/* 2. Active Hospital QR Gates List */}
+              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b pb-3 border-gray-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">Active Hospital QR Gates</h3>
+                    <p className="text-xs text-gray-500">Live codes currently accepting doctor check-ins</p>
+                  </div>
+                  <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                    {hospitalQRCodes.length} Active
+                  </span>
+                </div>
+
+                {hospitalQRCodes.length === 0 ? (
+                  <div className="py-10 text-center text-gray-400 text-xs">
+                    <span className="text-3xl block mb-2">🏷️</span>
+                    No active hospital QR codes. Generate one using the form on the left.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                    {hospitalQRCodes.map((qr) => (
+                      <div
+                        key={qr.id}
+                        className="bg-gray-50 rounded-xl p-3.5 border border-gray-200 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-900 truncate">{qr.location}</p>
+                          <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                            Code: {qr.code}
+                          </p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            Expires: {new Date(qr.expiresAt).toLocaleTimeString()} &bull; Total Check-Ins:{' '}
+                            <strong className="text-purple-700">{qr.totalCheckIns}</strong>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            disabled={revokingCodeId === qr.id}
+                            onClick={() => handleRevokeCode(qr.id)}
+                            className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-[11px] rounded-lg border border-red-200 transition cursor-pointer disabled:opacity-50"
+                          >
+                            {revokingCodeId === qr.id ? 'Revoking...' : 'Revoke'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Doctor Attendance History Table */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 border-gray-100">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Doctor Attendance &amp; Shift History
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Audit log of verified doctor check-ins, check-outs, and clinical work sessions.
+                  </p>
+                </div>
+
+                {/* Filter Toolbar */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <select
+                    value={attendanceFilterDoctor}
+                    onChange={(e) => setAttendanceFilterDoctor(e.target.value)}
+                    className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
+                  >
+                    <option value="ALL">All Doctors</option>
+                    {doctors.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.user?.name || d.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={attendanceFilterDate}
+                    onChange={(e) => setAttendanceFilterDate(e.target.value)}
+                    className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs"
+                  />
+
+                  {(attendanceFilterDoctor !== 'ALL' || attendanceFilterDate) && (
+                    <button
+                      onClick={() => {
+                        setAttendanceFilterDoctor('ALL');
+                        setAttendanceFilterDate('');
+                      }}
+                      className="text-purple-600 font-bold text-xs hover:underline cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {loadingAttendance ? (
+                <div className="py-12 text-center space-y-2">
+                  <div className="w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-xs text-gray-400">Loading attendance records...</p>
+                </div>
+              ) : attendanceRecords.length === 0 ? (
+                <div className="py-10 text-center text-gray-400 text-xs">
+                  <span className="text-3xl block mb-2">📋</span>
+                  No attendance records matching current filters.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-gray-600">
+                    <thead className="bg-gray-50 text-gray-700 font-bold border-b">
+                      <tr>
+                        <th className="py-2.5 px-4">Doctor</th>
+                        <th className="py-2.5 px-4">Location</th>
+                        <th className="py-2.5 px-4">Check-In</th>
+                        <th className="py-2.5 px-4">Check-Out</th>
+                        <th className="py-2.5 px-4">Duration</th>
+                        <th className="py-2.5 px-4">Verification</th>
+                        <th className="py-2.5 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {attendanceRecords.map((r) => (
+                        <tr key={r.id} className="hover:bg-gray-50/60">
+                          <td className="py-3 px-4">
+                            <strong className="text-gray-900 block">{r.doctorName}</strong>
+                            <span className="text-[11px] text-gray-400 font-medium">
+                              {r.specialization} &bull; {r.department}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-medium text-gray-800">{r.location}</td>
+                          <td className="py-3 px-4 font-mono text-[11px]">
+                            {new Date(r.checkInTime).toLocaleString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-[11px]">
+                            {r.checkOutTime
+                              ? new Date(r.checkOutTime).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Ongoing'}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-blue-700">
+                            {r.durationMinutes
+                              ? `${Math.floor(r.durationMinutes / 60)}h ${r.durationMinutes % 60}m`
+                              : 'Active'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                              {r.checkInMethod}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                r.status === 'CHECKED_IN'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : 'bg-gray-100 text-gray-700 border border-gray-300'
+                              }`}
+                            >
+                              {r.status === 'CHECKED_IN' ? '● ON DUTY' : '✓ COMPLETED'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* QR Scan Security Audit Trail Feed */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+              <div className="border-b pb-3 border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900">
+                  🛡️ QR Scan Security &amp; Audit Trail
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Comprehensive audit trail of all scan interactions, replay rejections, and expired token attempts.
+                </p>
+              </div>
+
+              {qrScanAudits.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 text-xs">
+                  No scan audit events recorded yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                  <table className="w-full text-left text-xs text-gray-600">
+                    <thead className="bg-gray-50 text-gray-700 font-bold border-b sticky top-0">
+                      <tr>
+                        <th className="py-2 px-3">Timestamp</th>
+                        <th className="py-2 px-3">User / Clinician</th>
+                        <th className="py-2 px-3">Action</th>
+                        <th className="py-2 px-3">Result</th>
+                        <th className="py-2 px-3">Location / Detail</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {qrScanAudits.map((a) => (
+                        <tr key={a.id} className="hover:bg-gray-50/60">
+                          <td className="py-2 px-3 font-mono text-[11px] text-gray-500">
+                            {new Date(a.timestamp).toLocaleTimeString()}
+                          </td>
+                          <td className="py-2 px-3">
+                            <strong className="text-gray-900">{a.doctorName || a.userId}</strong>{' '}
+                            <span className="text-[10px] text-gray-400 font-mono">({a.userRole})</span>
+                          </td>
+                          <td className="py-2 px-3 font-bold text-gray-800">{a.action}</td>
+                          <td className="py-2 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
+                                a.status === 'SUCCESS'
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : a.status === 'REPLAY_REJECTED'
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  : 'bg-red-50 text-red-800 border border-red-200'
+                              }`}
+                            >
+                              {a.status}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-[11px] text-gray-600 truncate max-w-xs">
+                            {a.location}{' '}
+                            {a.failureReason && (
+                              <span className="text-red-600 italic block text-[10px]">
+                                {a.failureReason}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* QR CODE PREVIEW & PRINT MODAL                                       */}
+        {/* =================================================================== */}
+        {qrPreviewModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-2 border-b">
+                <div className="text-left">
+                  <h3 className="text-base font-black text-gray-900">Hospital OPD Check-In QR</h3>
+                  <p className="text-[11px] text-purple-700 font-bold">{qrPreviewModal.location}</p>
+                </div>
+                <button
+                  onClick={() => setQrPreviewModal(null)}
+                  className="text-gray-400 hover:text-gray-700 text-lg font-bold p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* QR Image */}
+              <div className="p-3 bg-gray-50 rounded-2xl border border-gray-200 inline-block shadow-inner">
+                <img
+                  src={qrPreviewModal.qrDataUrl}
+                  alt="Hospital Attendance QR Code"
+                  className="w-56 h-56 mx-auto rounded-xl shadow-xs"
+                />
+              </div>
+
+              <div className="text-xs space-y-1">
+                <p className="font-mono text-[11px] text-gray-500">
+                  ID: {qrPreviewModal.qrCode?.code}
+                </p>
+                <p className="text-gray-600">
+                  Validity: <strong>{qrPreviewModal.validityMinutes} minutes</strong>
+                </p>
+                <p className="text-amber-700 font-semibold text-[11px]">
+                  ⏰ Expires at {new Date(qrPreviewModal.expiresAt).toLocaleTimeString()}
+                </p>
+              </div>
+
+              <p className="text-[11px] text-gray-400 leading-tight">
+                Print or display this QR code at the clinic desk. Clinicians will scan it via their phone to log attendance.
+              </p>
+
+              <div className="flex gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  🖨️ Print Desk Sign
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQrPreviewModal(null)}
+                  className="flex-1 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

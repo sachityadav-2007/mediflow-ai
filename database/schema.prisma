@@ -52,6 +52,13 @@ enum DetectionMethod {
   RFID
   FACE_RECOGNITION
   MOBILE_PROXIMITY
+  QR_SCAN
+}
+
+enum AttendanceStatus {
+  CHECKED_IN
+  CHECKED_OUT
+  AUTO_CLOSED
 }
 
 enum SlotStatus {
@@ -71,6 +78,7 @@ enum PriorityLevel {
 enum AppointmentStatus {
   SCHEDULED
   CONFIRMED
+  CHECKED_IN
   IN_PROGRESS
   COMPLETED
   CANCELLED
@@ -131,6 +139,8 @@ model Doctor {
   appointmentSlots     AppointmentSlot[]
   appointments         Appointment[]
   waitlists            Waitlist[]
+  predictionLogs       PredictionLog[]
+  attendances          DoctorAttendance[]
 
   @@map("doctors")
 }
@@ -233,6 +243,9 @@ model Appointment {
   status            AppointmentStatus @default(SCHEDULED)
   reason            String?
   notes             String?
+  checkInToken      String?           @unique
+  checkedInAt       DateTime?
+  reminderSentAt    DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -259,4 +272,106 @@ model Waitlist {
   updatedAt     DateTime       @updatedAt
 
   @@map("waitlists")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 9: PREDICTION LOG
+// Audit & tracking of AI forecasts, demand estimations, and slot recommendations
+// -----------------------------------------------------------------------------
+model PredictionLog {
+  id               String    @id @default(uuid())
+  predictionType   String    // "AVAILABILITY" | "DEMAND" | "WAITING_TIME" | "SLOT_RECOMMENDATION"
+  doctorId         String?
+  doctor           Doctor?   @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  department       String?
+  targetDate       DateTime?
+  forecastPeriod   String?   // e.g. "NEXT_7_DAYS", "DAY_SPECIFIC"
+  predictionResult Json      // Detailed output payload and breakdown
+  confidenceScore  Float?    // 0.0 - 1.0
+  algorithmVersion String    @default("v1.0-statistical-baseline")
+  isCached         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  @@index([predictionType, doctorId])
+  @@index([predictionType, department])
+  @@index([createdAt])
+  @@map("prediction_logs")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 10: HOSPITAL QR CODE (Phase 12: Doctor QR Attendance)
+// Dynamic short-lived cryptographic check-in QR codes for hospital locations
+// -----------------------------------------------------------------------------
+model HospitalQRCode {
+  id              String             @id @default(uuid())
+  code            String             @unique // Unique cryptographic code identifier
+  signedToken     String             // Cryptographically signed JWT token
+  location        String             // Hospital building/wing/suite e.g. "Main OPD Building - Ground Floor"
+  validityMinutes Int                @default(60)
+  expiresAt       DateTime
+  isActive        Boolean            @default(true)
+  revokedAt       DateTime?
+  revokedBy       String?            // Admin user ID who revoked the code
+  createdById     String             // Admin user ID who created the code
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  scanEvents      QRScanAudit[]
+  attendances     DoctorAttendance[]
+
+  @@index([code])
+  @@index([isActive, expiresAt])
+  @@map("hospital_qr_codes")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 11: DOCTOR ATTENDANCE RECORD
+// Tracks doctor check-in, check-out sessions, durations, and locations
+// -----------------------------------------------------------------------------
+model DoctorAttendance {
+  id              String           @id @default(uuid())
+  doctorId        String
+  doctor          Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  qrCodeId        String?
+  qrCode          HospitalQRCode?  @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  location        String           // Location where doctor checked in
+  checkInTime     DateTime         @default(now())
+  checkOutTime    DateTime?
+  durationMinutes Int?             // Computed working minutes upon check-out
+  status          AttendanceStatus @default(CHECKED_IN)
+  checkInMethod   DetectionMethod  @default(QR_SCAN)
+  checkOutMethod  DetectionMethod?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([doctorId, checkInTime])
+  @@index([status])
+  @@map("doctor_attendances")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 12: QR SCAN AUDIT EVENT
+// Security & audit trail for all QR scan interactions (valid, rejected, expired)
+// -----------------------------------------------------------------------------
+model QRScanAudit {
+  id            String          @id @default(uuid())
+  qrCodeId      String?
+  qrCode        HospitalQRCode? @relation(fields: [qrCodeId], references: [id], onDelete: SetNull)
+  userId        String
+  userRole      Role
+  doctorId      String?
+  doctorName    String?
+  location      String
+  action        String          // "CHECK_IN" | "CHECK_OUT" | "INVALID_SCAN"
+  status        String          // "SUCCESS" | "FAILED" | "REPLAY_REJECTED" | "EXPIRED" | "REVOKED"
+  ipAddress     String?
+  userAgent     String?
+  failureReason String?
+  timestamp     DateTime        @default(now())
+
+  @@index([qrCodeId])
+  @@index([doctorId])
+  @@index([timestamp])
+  @@map("qr_scan_audits")
 }

@@ -1,5 +1,12 @@
 const prisma = require('../config/db');
 const { getIO } = require('../config/socket');
+const { smartAllocateSlot } = require('./allocationService');
+const { clearCache } = require('./ai/aiService');
+const {
+  sendBookingConfirmationEmail,
+  sendRescheduleEmail,
+  sendCancellationEmail,
+} = require('./emailService');
 const {
   generateTimeSlots,
   getDayOfWeekFromDate,
@@ -11,6 +18,7 @@ const {
 const VALID_APPOINTMENT_STATUSES = [
   'SCHEDULED',
   'CONFIRMED',
+  'CHECKED_IN',
   'IN_PROGRESS',
   'COMPLETED',
   'CANCELLED',
@@ -392,7 +400,21 @@ const bookAppointment = async ({
       priority: appointment.priority,
       status: appointment.status,
     });
+    // Invalidate AI forecast cache and notify listeners
+    clearCache();
+    io.emit('ai_forecast_updated', { type: 'APPOINTMENT_CREATED', doctorId: appointment.doctorId });
   }
+
+  // Phase 11: Send asynchronous booking confirmation email
+  sendBookingConfirmationEmail({
+    to: appointment.patient?.user?.email,
+    patientName: appointment.patient?.user?.name,
+    appointmentNumber: appointment.appointmentNumber,
+    doctorName: appointment.doctor?.user?.name,
+    date: date,
+    time: `${appointment.slot?.startTime} - ${appointment.slot?.endTime}`,
+    cabin: appointment.doctor?.roomNumber,
+  }).catch((e) => console.warn('Booking confirmation email notice:', e.message));
 
   return appointment;
 };
@@ -599,9 +621,46 @@ const cancelAppointment = async (appointmentId, user) => {
       endTime: updatedAppointment.slot?.endTime,
       status: 'CANCELLED',
     });
+    clearCache();
+    io.emit('ai_forecast_updated', { type: 'APPOINTMENT_CANCELLED', doctorId: updatedAppointment.doctorId });
   }
 
-  return updatedAppointment;
+  const oldDateStr = appointment.appointmentDate.toISOString().split('T')[0];
+  const oldStartTime = appointment.slot?.startTime;
+
+  // Phase 11: Send asynchronous cancellation email
+  sendCancellationEmail({
+    to: updatedAppointment.patient?.user?.email,
+    patientName: updatedAppointment.patient?.user?.name,
+    appointmentNumber: updatedAppointment.appointmentNumber,
+    doctorName: updatedAppointment.doctor?.user?.name,
+    date: oldDateStr,
+    time: oldStartTime,
+  }).catch((e) => console.warn('Cancellation email notice:', e.message));
+
+  // Phase 10: Automatic waitlist slot allocation upon cancellation
+  let autoAllocationResult = null;
+
+  if (oldStartTime) {
+    try {
+      const alloc = await smartAllocateSlot({
+        doctorId: appointment.doctorId,
+        appointmentDate: oldDateStr,
+        startTime: oldStartTime,
+      });
+      if (alloc && alloc.allocated) {
+        autoAllocationResult = alloc;
+      }
+    } catch (allocErr) {
+      console.log('Post-cancellation automatic waitlist allocation check:', allocErr.message);
+    }
+  }
+
+  return {
+    ...updatedAppointment,
+    autoAllocated: !!autoAllocationResult,
+    allocatedPatient: autoAllocationResult?.selectedPatient || null,
+  };
 };
 
 /**
@@ -685,7 +744,313 @@ const updateAppointmentStatus = async (appointmentId, userId, newStatus) => {
     }
   }
 
-  return updatedAppointment;
+  // Phase 10: Automatic waitlist slot allocation if doctor cancels the appointment
+  let autoAllocationResult = null;
+  if (newStatus === 'CANCELLED' && appointment.slotId) {
+    const oldDateStr = appointment.appointmentDate.toISOString().split('T')[0];
+    const oldStartTime = appointment.slot?.startTime;
+    if (oldStartTime) {
+      try {
+        const alloc = await smartAllocateSlot({
+          doctorId: appointment.doctorId,
+          appointmentDate: oldDateStr,
+          startTime: oldStartTime,
+        });
+        if (alloc && alloc.allocated) {
+          autoAllocationResult = alloc;
+        }
+      } catch (allocErr) {
+        console.log('Doctor cancel auto-allocation check:', allocErr.message);
+      }
+    }
+  }
+
+  return {
+    ...updatedAppointment,
+    autoAllocated: !!autoAllocationResult,
+    allocatedPatient: autoAllocationResult?.selectedPatient || null,
+  };
+};
+
+/**
+ * 8. Reschedule an appointment (Patient owner, Doctor owner, or Admin) — Phase 10
+ */
+const rescheduleAppointment = async (
+  appointmentId,
+  user,
+  { newDate, newStartTime, newEndTime, reason }
+) => {
+  if (!appointmentId) {
+    throw new Error('Appointment ID is required.');
+  }
+
+  if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+    throw new Error('Valid new appointment date (YYYY-MM-DD) is required.');
+  }
+
+  if (!newStartTime) {
+    throw new Error('New start time is required.');
+  }
+
+  // 1. Fetch existing appointment with doctor, patient, and current slot
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      patient: {
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+        },
+      },
+      doctor: {
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          availabilities: true,
+        },
+      },
+      slot: true,
+    },
+  });
+
+  if (!appointment) {
+    throw new Error('Appointment not found.');
+  }
+
+  // Check ownership
+  const isPatientOwner = user.role === 'PATIENT' && appointment.patient.userId === user.id;
+  const isDoctorOwner = user.role === 'DOCTOR' && appointment.doctor.userId === user.id;
+  const isAdmin = user.role === 'ADMIN';
+
+  if (!isPatientOwner && !isDoctorOwner && !isAdmin) {
+    throw new Error('Unauthorized: You cannot reschedule this appointment.');
+  }
+
+  if (appointment.status === 'CANCELLED') {
+    throw new Error('Cannot reschedule a cancelled appointment.');
+  }
+
+  if (appointment.status === 'COMPLETED') {
+    throw new Error('Cannot reschedule an already completed appointment.');
+  }
+
+  // Verify doctor is not OFFLINE
+  if (appointment.doctor.currentPresence === 'OFFLINE') {
+    throw new Error('Doctor is currently OFFLINE and not accepting rescheduled appointments.');
+  }
+
+  // Verify doctor has an active schedule for the new day of week
+  const dayOfWeek = getDayOfWeekFromDate(newDate);
+  const activeSchedule = appointment.doctor.availabilities.find(
+    (item) => item.dayOfWeek === dayOfWeek && item.isAvailable === true
+  );
+
+  if (!activeSchedule) {
+    throw new Error(`Doctor is not scheduled to consult on ${dayOfWeek}.`);
+  }
+
+  // Calculate new end time if omitted
+  const duration = appointment.doctor.consultationDuration || 30;
+  const calculatedEndTime =
+    newEndTime || minutesToTime(timeToMinutes(newStartTime) + duration);
+
+  const newStartOfDay = new Date(`${newDate}T00:00:00.000Z`);
+  const newEndOfDay = new Date(`${newDate}T23:59:59.999Z`);
+
+  const oldSlotId = appointment.slotId;
+  const oldDateStr = appointment.appointmentDate.toISOString().split('T')[0];
+  const oldStartTime = appointment.slot?.startTime;
+
+  // 2. Perform atomic transaction
+  const updatedAppointment = await prisma.$transaction(async (tx) => {
+    // Conflict check on doctor for new slot
+    const doctorConflict = await tx.appointment.findFirst({
+      where: {
+        id: { not: appointmentId },
+        doctorId: appointment.doctorId,
+        appointmentDate: {
+          gte: newStartOfDay,
+          lte: newEndOfDay,
+        },
+        slot: {
+          startTime: newStartTime,
+        },
+        status: {
+          notIn: ['CANCELLED'],
+        },
+      },
+    });
+
+    if (doctorConflict) {
+      throw new Error('The requested time slot is already booked. Please choose another slot.');
+    }
+
+    // Conflict check on patient for new slot
+    const patientConflict = await tx.appointment.findFirst({
+      where: {
+        id: { not: appointmentId },
+        patientId: appointment.patientId,
+        appointmentDate: {
+          gte: newStartOfDay,
+          lte: newEndOfDay,
+        },
+        slot: {
+          startTime: newStartTime,
+        },
+        status: {
+          notIn: ['CANCELLED'],
+        },
+      },
+    });
+
+    if (patientConflict) {
+      throw new Error('You already have another active appointment at this time slot.');
+    }
+
+    // Step A: Free the old slot
+    if (oldSlotId) {
+      await tx.appointmentSlot.update({
+        where: { id: oldSlotId },
+        data: { status: 'AVAILABLE' },
+      });
+    }
+
+    // Step B: Find or create the new slot
+    let newSlot = await tx.appointmentSlot.findFirst({
+      where: {
+        doctorId: appointment.doctorId,
+        slotDate: {
+          gte: newStartOfDay,
+          lte: newEndOfDay,
+        },
+        startTime: newStartTime,
+      },
+    });
+
+    if (newSlot) {
+      const existingApptOnSlot = await tx.appointment.findUnique({
+        where: { slotId: newSlot.id },
+      });
+
+      if (existingApptOnSlot && existingApptOnSlot.id !== appointmentId) {
+        newSlot = await tx.appointmentSlot.create({
+          data: {
+            doctorId: appointment.doctorId,
+            slotDate: newStartOfDay,
+            startTime: newStartTime,
+            endTime: calculatedEndTime,
+            status: 'BOOKED',
+          },
+        });
+      } else {
+        newSlot = await tx.appointmentSlot.update({
+          where: { id: newSlot.id },
+          data: {
+            status: 'BOOKED',
+            endTime: calculatedEndTime,
+          },
+        });
+      }
+    } else {
+      newSlot = await tx.appointmentSlot.create({
+        data: {
+          doctorId: appointment.doctorId,
+          slotDate: newStartOfDay,
+          startTime: newStartTime,
+          endTime: calculatedEndTime,
+          status: 'BOOKED',
+        },
+      });
+    }
+
+    // Step C: Update the appointment record
+    const rescheduleNote = reason
+      ? `Rescheduled from ${oldDateStr} ${oldStartTime || ''} to ${newDate} ${newStartTime} (Reason: ${reason})`
+      : `Rescheduled from ${oldDateStr} ${oldStartTime || ''} to ${newDate} ${newStartTime}`;
+
+    const updated = await tx.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        appointmentDate: newStartOfDay,
+        slotId: newSlot.id,
+        status: appointment.status === 'SCHEDULED' ? 'SCHEDULED' : 'CONFIRMED',
+        notes: appointment.notes
+          ? `${appointment.notes} | ${rescheduleNote}`
+          : rescheduleNote,
+      },
+      include: {
+        doctor: {
+          include: {
+            user: { select: { name: true, email: true } },
+          },
+        },
+        patient: {
+          include: {
+            user: { select: { name: true, email: true, phone: true } },
+          },
+        },
+        slot: true,
+      },
+    });
+
+    return updated;
+  });
+
+  // Step D: Real-time broadcast via Socket.IO
+  const io = getIO();
+  if (io) {
+    io.emit('appointment_rescheduled', {
+      appointmentId: updatedAppointment.id,
+      doctorId: updatedAppointment.doctorId,
+      patientId: updatedAppointment.patientId,
+      oldDate: oldDateStr,
+      oldStartTime,
+      newDate,
+      newStartTime,
+      newEndTime: calculatedEndTime,
+      appointmentNumber: updatedAppointment.appointmentNumber,
+    });
+    clearCache();
+    io.emit('ai_forecast_updated', { type: 'APPOINTMENT_RESCHEDULED', doctorId: updatedAppointment.doctorId });
+  }
+
+  // Phase 11: Send asynchronous reschedule confirmation email
+  sendRescheduleEmail({
+    to: updatedAppointment.patient?.user?.email,
+    patientName: updatedAppointment.patient?.user?.name,
+    appointmentNumber: updatedAppointment.appointmentNumber,
+    doctorName: updatedAppointment.doctor?.user?.name,
+    oldDate: oldDateStr,
+    oldTime: oldStartTime,
+    newDate,
+    newTime: `${newStartTime} - ${calculatedEndTime}`,
+    cabin: appointment.doctor?.roomNumber,
+  }).catch((e) => console.warn('Reschedule email notice:', e.message));
+
+  // Step E: Auto-allocate the freed old slot if waitlist patients are queued!
+  let autoAllocationResult = null;
+  if (oldStartTime) {
+    try {
+      const alloc = await smartAllocateSlot({
+        doctorId: appointment.doctorId,
+        appointmentDate: oldDateStr,
+        startTime: oldStartTime,
+      });
+      if (alloc && alloc.allocated) {
+        autoAllocationResult = alloc;
+      }
+    } catch (e) {
+      console.log('Post-reschedule auto-allocation check:', e.message);
+    }
+  }
+
+  return {
+    appointment: updatedAppointment,
+    oldDate: oldDateStr,
+    oldStartTime,
+    newDate,
+    newStartTime,
+    autoAllocated: !!autoAllocationResult,
+    allocatedPatient: autoAllocationResult?.selectedPatient || null,
+  };
 };
 
 module.exports = {
@@ -696,6 +1061,7 @@ module.exports = {
   getTodayDoctorAppointments,
   cancelAppointment,
   updateAppointmentStatus,
+  rescheduleAppointment,
   VALID_APPOINTMENT_STATUSES,
 };
 

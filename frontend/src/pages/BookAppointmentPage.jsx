@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { getDoctors, getAvailableSlots, bookAppointment, joinWaitlist } from '../services/api';
+import {
+  getDoctors,
+  getAvailableSlots,
+  bookAppointment,
+  joinWaitlist,
+  getDoctorAvailabilityPrediction,
+  getEstimatedWaitingTime,
+} from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../hooks/useSocket';
 
@@ -11,6 +18,7 @@ function BookAppointmentPage() {
   const { user } = useAuth();
 
   const preselectedDoctorId = searchParams.get('doctorId') || '';
+  const preselectedDate = searchParams.get('date');
 
   // Form states
   const [doctors, setDoctors] = useState([]);
@@ -19,12 +27,16 @@ function BookAppointmentPage() {
 
   // Today's date formatted as YYYY-MM-DD for min date
   const todayStr = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [selectedDate, setSelectedDate] = useState(preselectedDate || todayStr);
 
   // Slots states
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsData, setSlotsData] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
+
+  // Phase 10: AI Predictive Insights
+  const [aiInsight, setAiInsight] = useState(null);
+  const [loadingAIInsight, setLoadingAIInsight] = useState(false);
 
   // Clinical details
   const [priority, setPriority] = useState('MEDIUM');
@@ -123,6 +135,40 @@ function BookAppointmentPage() {
       fetchSlots();
     }
   });
+
+  // Phase 10: Fetch AI predictive availability and wait-time estimate when slot is chosen
+  useEffect(() => {
+    if (!selectedDoctorId || !selectedDate || !selectedSlot?.startTime) {
+      setAiInsight(null);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchAI = async () => {
+      setLoadingAIInsight(true);
+      try {
+        const [availRes, waitRes] = await Promise.all([
+          getDoctorAvailabilityPrediction(selectedDoctorId, selectedDate, selectedSlot.startTime).catch(() => null),
+          getEstimatedWaitingTime(selectedDoctorId, selectedDate, selectedSlot.startTime).catch(() => null),
+        ]);
+        if (isMounted) {
+          setAiInsight({
+            availability: availRes?.prediction || null,
+            waitTime: waitRes?.waitTime || null,
+          });
+        }
+      } catch (err) {
+        console.warn('AI insight fetch notice:', err.message);
+      } finally {
+        if (isMounted) setLoadingAIInsight(false);
+      }
+    };
+
+    fetchAI();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDoctorId, selectedDate, selectedSlot]);
 
   // 3. Handle appointment booking submission
   const handleBookingSubmit = async (e) => {
@@ -589,9 +635,53 @@ function BookAppointmentPage() {
               )}
 
               {selectedSlot && (
-                <p className="text-xs text-green-700 font-medium mt-2">
-                  ✓ Selected Slot: <strong>{selectedSlot.startTime} &ndash; {selectedSlot.endTime}</strong>
-                </p>
+                <div className="space-y-2 mt-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-green-700 font-medium">
+                      ✓ Selected Slot: <strong>{selectedSlot.startTime} &ndash; {selectedSlot.endTime}</strong>
+                    </p>
+                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                      🤖 AI Predictive Assessment
+                    </span>
+                  </div>
+
+                  {loadingAIInsight ? (
+                    <div className="p-3 bg-gray-50 rounded-xl text-xs text-gray-400 flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                      Computing AI queue velocity &amp; availability confidence...
+                    </div>
+                  ) : aiInsight ? (
+                    <div className="p-3.5 bg-gradient-to-r from-purple-50/70 via-indigo-50/50 to-blue-50/50 rounded-xl border border-purple-100 text-xs space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">🟢</span>
+                          <div>
+                            <span className="text-gray-500 block text-[10px] uppercase font-bold">Predicted Availability</span>
+                            <span className="font-bold text-emerald-800">
+                              {aiInsight.availability?.percentage || 90}% Certainty ({aiInsight.availability?.confidence || 'HIGH'})
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">⏳</span>
+                          <div>
+                            <span className="text-gray-500 block text-[10px] uppercase font-bold">Expected Clinic Wait</span>
+                            <span className="font-bold text-indigo-900">
+                              {aiInsight.waitTime?.formattedWaitRange || '~5 - 10 mins'} (Queue Pos #{aiInsight.waitTime?.queuePosition || 1})
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {aiInsight.availability?.explanation && (
+                        <p className="text-[11px] text-gray-600 border-t border-purple-100/80 pt-1.5 leading-relaxed">
+                          💡 <em>{aiInsight.availability.explanation}</em>
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               )}
             </div>
 

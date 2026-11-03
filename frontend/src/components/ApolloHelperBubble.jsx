@@ -21,7 +21,7 @@ export default function ApolloHelperBubble() {
           Need help choosing a doctor?
         </p>
         <p className="text-[11px] text-amber-800 mt-0.5">
-          Use our Smart Priority Triage Waitlist if your preferred slot is booked.
+          If your preferred slot is booked, our Smart Priority Triage Waitlist will automatically allocate open slots.
         </p>
         <Link
           to="/waitlist"
@@ -32,12 +32,11 @@ export default function ApolloHelperBubble() {
       </div>
 
       <div
-        className="w-12 h-12 rounded-full bg-[#0072CE] border-2 border-white shadow-xl flex items-center justify-center text-xl shrink-0 cursor-pointer animate-bounce"
-        title="Apollo Live Health Support"
+        className="w-12 h-12 rounded-full bg-[#0072CE] border-2 border-white shadow-xl flex items-center justify-center text-xl shrink-0 cursor-pointer animate-bounce text-white"
+        title="MediFlow AI Live Health Assistant"
       >
         💬
       </div>
     </div>
   );
 }
-

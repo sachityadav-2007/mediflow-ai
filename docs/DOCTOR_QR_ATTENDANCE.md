@@ -60,3 +60,4 @@ sequenceDiagram
 
 ### 5. Physical Presence Clinical Disclaimer
 > **Clinical Governance Notice:** QR code scanning provides cryptographic proof of an authenticated check-in interaction at a specific hospital location. It initiates doctor presence tracking for appointment scheduling and queue management, but does not continuously guarantee uninterrupted physical room occupancy throughout the shift duration.
+

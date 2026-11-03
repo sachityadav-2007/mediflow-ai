@@ -27,7 +27,7 @@ function Navbar() {
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
-          {/* Brand Logo & Sub-label (Apollo Inspired) */}
+          {/* Brand Logo & Sub-label */}
           <div className="flex items-center">
             <Link
               to="/"
@@ -42,7 +42,7 @@ function Navbar() {
                   MediFlow <span className="text-[#0072CE]">AI</span>
                 </span>
                 <span className="text-[10px] font-bold text-gray-500 tracking-wider uppercase mt-0.5">
-                  Apollo Specialist Network
+                  Smart Hospital Network
                 </span>
               </div>
             </Link>
@@ -62,7 +62,6 @@ function Navbar() {
               className="text-xs sm:text-sm font-bold text-[#0072CE] bg-blue-50/60 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 transition flex items-center gap-1.5"
             >
               <span>Doctors Directory</span>
-              <span className="text-[10px] bg-[#0072CE] text-white px-1.5 py-0.2 rounded-full font-bold">109</span>
             </Link>
 
             {user?.role === 'PATIENT' && (
@@ -144,13 +143,13 @@ function Navbar() {
               </Link>
             )}
 
-            {/* Helpline quick dial button (Apollo style) */}
+            {/* Helpline quick dial button */}
             <a
-              href="tel:1066"
-              className="hidden xl:flex items-center gap-1 text-xs font-black text-amber-900 bg-amber-400 hover:bg-amber-500 px-3 py-1.5 rounded-lg transition shadow-2xs"
-              title="24/7 Apollo Emergency Helpline"
+              href="tel:18002003569"
+              className="hidden xl:flex items-center gap-1 text-xs font-black text-blue-900 bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded-lg transition shadow-2xs"
+              title="24/7 Hospital Helpline"
             >
-              <span>📞 1066</span>
+              <span>📞 1800-200-FLOW</span>
             </a>
 
             {/* Auth area */}

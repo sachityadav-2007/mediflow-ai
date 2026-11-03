@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-// High-resolution clinical portraits matching Apollo Hospitals doctor roster
+// High-resolution clinical portraits for verified medical specialist directory
 export const DOCTOR_PORTRAITS = {
   'Dr. Ketan Vartak':
     'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80',
@@ -23,15 +23,15 @@ export const DOCTOR_PORTRAITS = {
     'https://images.unsplash.com/photo-1622902046580-2b47f47f5471?auto=format&fit=crop&w=400&q=80',
 };
 
-// Apollo-Style Doctor Professional Headlines
+// MediFlow AI Verified Specialist Clinical Designations
 export const DOCTOR_HEADLINES = {
-  'Dr. Ketan Vartak': 'Best Urologist in Pune',
-  'Dr. Rajesh Parasnis': 'Best Orthopedic & Spine Surgeon in Pune',
-  'Dr. Naresh Munot': 'Senior Interventional Cardiologist',
-  'Dr. Smruti Hindaria': 'Lead Cardiac Thoracic Surgeon',
-  'Dr. Sunil Jawale': 'Chief Nephrologist & Transplant Specialist',
-  'Dr. Vidita Powle': 'Senior Medical Oncologist',
-  'Dr. Suyog Doshi': 'Lead Neurosurgeon & Spine Specialist',
+  'Dr. Ketan Vartak': 'Senior Consultant Urologist',
+  'Dr. Rajesh Parasnis': 'Senior Orthopedic & Spine Surgeon',
+  'Dr. Naresh Munot': 'Consultant Cardiologist',
+  'Dr. Smruti Hindaria': 'Consultant CTVS Surgeon',
+  'Dr. Sunil Jawale': 'Consultant Nephrologist',
+  'Dr. Vidita Powle': 'Senior Consultant Oncologist',
+  'Dr. Suyog Doshi': 'Senior Consultant Neurosurgeon',
   'Dr. Rajesh Sharma': 'Consultant Cardiologist',
   'Dr. Ananya Patel': 'Consultant Neurologist',
 };
@@ -113,7 +113,7 @@ export function renderPresenceBadge(status) {
   }
 }
 
-// Complete Apollo-Style Doctor Card
+// Complete MediFlow AI Specialist Doctor Card
 export default function DoctorCard({ doctor, selectedCity = 'Pune', onCallDoctor, onShare }) {
   const doctorName = doctor.user?.name || 'Dr. Specialist';
   const headline = DOCTOR_HEADLINES[doctorName];
@@ -123,7 +123,7 @@ export default function DoctorCard({ doctor, selectedCity = 'Pune', onCallDoctor
     <div className="bg-white rounded-2xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group shadow-2xs">
       {/* Top Section: Photo + Doctor Info */}
       <div className="p-4 sm:p-5 flex gap-4 items-start">
-        {/* High-Resolution Doctor Portrait */}
+        {/* Doctor Portrait */}
         <DoctorPortraitImage
           name={doctorName}
           specialization={doctor.specialization}
@@ -150,23 +150,31 @@ export default function DoctorCard({ doctor, selectedCity = 'Pune', onCallDoctor
             )}
           </div>
 
-          {/* Speciality in Apollo Blue */}
-          <p className="text-xs font-bold text-[#0072CE] mb-1">
-            {doctor.specialization}
-          </p>
+          {/* Speciality Badge + Demo Roster Tag */}
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-xs font-bold text-[#0072CE]">
+              {doctor.specialization}
+            </span>
+            <span className="text-[9px] bg-blue-50 text-blue-700 font-bold px-1.5 py-0.2 rounded border border-blue-200">
+              Verified Specialist
+            </span>
+            <span className="text-[9px] bg-gray-100 text-gray-500 font-semibold px-1.5 py-0.2 rounded" title="Clinical simulation profile for portfolio evaluation">
+              Demo Roster
+            </span>
+          </div>
 
           {/* Experience & Qualification */}
           <p className="text-xs text-gray-600 font-medium mb-2 truncate">
             <strong>{doctor.experience}+ Years</strong> , {doctor.qualification || 'MBBS, MD'}
           </p>
 
-          {/* Apollo Hospitals Location */}
+          {/* MediFlow Hospital Campus Location */}
           <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-2.5">
             <span className="w-3.5 h-3.5 rounded-full border border-[#0072CE] text-[#0072CE] flex items-center justify-center text-[9px] shrink-0 font-bold">
               ●
             </span>
             <span className="truncate">
-              Apollo Hospitals, {selectedCity === 'ALL' ? 'Pune' : selectedCity} ({doctor.roomNumber || 'Room 101'})
+              MediFlow Central Hospital, {selectedCity === 'ALL' ? 'Pune Campus' : selectedCity} ({doctor.roomNumber || 'Room 101'})
             </span>
           </div>
 
@@ -192,9 +200,8 @@ export default function DoctorCard({ doctor, selectedCity = 'Pune', onCallDoctor
         </div>
       </div>
 
-      {/* Bottom Action Buttons: Apollo Amber & Apollo White/Blue Call Now */}
+      {/* Bottom Action Buttons: Amber Book & White/Blue Call Now */}
       <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50/80 border-t border-gray-100">
-        {/* Primary Button: Apollo Amber #F5A623 */}
         <Link
           to={`/book?doctorId=${doctor.id}`}
           className="w-full py-2.5 px-3 bg-[#F5A623] hover:bg-[#E09823] active:bg-[#C9841B] text-gray-950 font-black text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition text-center"
@@ -203,16 +210,14 @@ export default function DoctorCard({ doctor, selectedCity = 'Pune', onCallDoctor
           <span className="text-sm">↗</span>
         </Link>
 
-        {/* Secondary Button: Call Now (Apollo White + Blue border) */}
         <button
           type="button"
           onClick={() => onCallDoctor && onCallDoctor(doctor)}
           className="w-full py-2.5 px-3 bg-white hover:bg-blue-50 text-[#0072CE] hover:text-[#005ea2] font-black text-xs rounded-xl border border-[#0072CE] transition flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
         >
-          <span>📞 Call Now</span>
+          <span>📞 Call Clinic Desk</span>
         </button>
       </div>
     </div>
   );
 }
-

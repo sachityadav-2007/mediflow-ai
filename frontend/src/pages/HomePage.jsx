@@ -55,7 +55,7 @@ function HomePage() {
     }
   });
 
-  // Filtered doctors for home preview (top 6)
+  // Filtered doctors for home preview (top specialists)
   const displayedDoctors = useMemo(() => {
     let list = doctors;
     if (searchQuery.trim()) {
@@ -73,7 +73,7 @@ function HomePage() {
     return list;
   }, [doctors, searchQuery, selectedSpeciality]);
 
-  // Handle Search Submission -> route to full directory if needed
+  // Handle Search Submission -> route to full directory
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -126,20 +126,20 @@ function HomePage() {
         </div>
       )}
 
-      {/* Apollo Hospitals Top Announcement Strip */}
+      {/* Hospital Top Announcement Strip */}
       <div className="bg-[#0072CE] text-white text-xs py-2 px-4 shadow-xs">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <div className="flex items-center gap-2 font-medium">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Apollo Hospitals Healthcare Network Partner &bull; Live OPD Queue &amp; Doctor Attendance Active</span>
+            <span>MediFlow AI Smart Hospital Network &bull; Live OPD Queue &amp; Doctor Attendance Active</span>
           </div>
           <div className="flex items-center gap-4 text-[11px] font-bold">
-            <a href="tel:1066" className="hover:underline flex items-center gap-1">
-              📞 24/7 Helpline: 1066
+            <a href="tel:18002003569" className="hover:underline flex items-center gap-1">
+              📞 24/7 Helpline: 1800-200-FLOW
             </a>
             <span className="text-white/40">|</span>
             <span className="flex items-center gap-1">
-              📍 Apollo Campus, Pune
+              📍 Central Hospital Campus, Pune
             </span>
           </div>
         </div>
@@ -147,23 +147,23 @@ function HomePage() {
 
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-12 flex-1">
         {/* ============================================================= */}
-        {/* HERO SECTION: Apollo Hospitals Style Doctor Search & Booking  */}
+        {/* HERO SECTION: Doctor Search & Booking                         */}
         {/* ============================================================= */}
         <section className="bg-gradient-to-br from-white via-blue-50/40 to-white rounded-3xl p-6 sm:p-10 border border-blue-100 shadow-sm relative overflow-hidden">
           <div className="max-w-3xl space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-[#0072CE] text-xs font-bold">
               <span>🏥</span>
-              <span>Apollo-Grade Specialist Care</span>
+              <span>Intelligent Outpatient Management System</span>
             </div>
             <h1 className="text-3xl sm:text-5xl font-black text-[#111827] tracking-tight leading-tight">
-              Best Doctors In Pune
+              Best Specialists In {selectedCity === 'ALL' ? 'MediFlow Network' : selectedCity}
             </h1>
             <p className="text-base sm:text-lg text-gray-600 font-medium leading-relaxed">
-              Book instant appointments with verified senior consultants across Apollo Hospitals Pune.
+              Book instant appointments with verified consultants across MediFlow AI Central Hospital.
               Live clinic presence tracking, dynamic slot engine, and zero waiting-time triage.
             </p>
 
-            {/* Apollo Search Bar Form */}
+            {/* Doctor Search Bar Form */}
             <form onSubmit={handleSearchSubmit} className="pt-2">
               <div className="bg-white p-2 rounded-2xl border border-gray-300 shadow-md flex flex-col md:flex-row items-center gap-2">
                 {/* City Picker */}
@@ -174,7 +174,7 @@ function HomePage() {
                     onChange={(e) => setSelectedCity(e.target.value)}
                     className="w-full bg-transparent text-xs font-bold text-gray-800 outline-none cursor-pointer"
                   >
-                    <option value="Pune">Pune (Apollo Main)</option>
+                    <option value="Pune">Pune (Central Campus)</option>
                     <option value="Ahmedabad">Ahmedabad</option>
                     <option value="Bangalore">Bangalore</option>
                     <option value="Delhi NCR">Delhi NCR</option>
@@ -265,27 +265,27 @@ function HomePage() {
         </section>
 
         {/* ============================================================= */}
-        {/* DOCTORS DIRECTORY PREVIEW: Live Apollo Doctor Cards Grid      */}
+        {/* DOCTORS DIRECTORY PREVIEW: Live Doctor Cards Grid             */}
         {/* ============================================================= */}
         <section className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-gray-200">
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-black text-[#111827] tracking-tight">
-                  Best Doctors In {selectedCity === 'ALL' ? 'Apollo Network' : selectedCity}
+                  Available Specialists In {selectedCity === 'ALL' ? 'MediFlow Network' : selectedCity}
                 </h2>
               </div>
               <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                 <span>
-                  Total Doctors:{' '}
+                  Total Registered Specialists:{' '}
                   <strong className="text-[#0072CE] font-bold">
-                    {displayedDoctors.length} Specialists
+                    {doctors.length} Verified
                   </strong>
                 </span>
                 <span>&bull;</span>
                 <span className="text-emerald-700 font-semibold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Live Presence &amp; OPD Queue Active
+                  Live Clinic Presence Active
                 </span>
               </div>
             </div>
@@ -294,7 +294,7 @@ function HomePage() {
               to="/doctors"
               className="text-xs font-bold text-[#0072CE] hover:text-[#005ea2] flex items-center gap-1 transition"
             >
-              <span>Explore All 109+ Specialists in Directory</span>
+              <span>Explore All {doctors.length} Doctors in Directory</span>
               <span>&rarr;</span>
             </Link>
           </div>
@@ -303,7 +303,7 @@ function HomePage() {
           {loading ? (
             <div className="py-20 text-center space-y-3 bg-white rounded-2xl border border-gray-200">
               <div className="w-10 h-10 border-4 border-[#0072CE] border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p className="text-xs font-semibold text-gray-600">Loading Apollo specialists...</p>
+              <p className="text-xs font-semibold text-gray-600">Loading verified specialists...</p>
             </div>
           ) : displayedDoctors.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center max-w-md mx-auto">
@@ -427,25 +427,25 @@ function HomePage() {
                 Emergency &amp; Helpline Desk
               </span>
               <h3 className="text-2xl sm:text-3xl font-black">
-                Need Urgent Medical Care in Pune?
+                Need Urgent Medical Care?
               </h3>
               <p className="text-xs sm:text-sm text-gray-300 max-w-xl">
-                Apollo Hospitals emergency medicine department and rapid-response ambulances operate 24 hours a day, 365 days a year.
+                MediFlow Central Hospital emergency medicine department and rapid-response ambulances operate 24 hours a day, 365 days a year.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
               <a
-                href="tel:1066"
+                href="tel:18002003569"
                 className="px-6 py-3.5 bg-[#F5A623] hover:bg-[#E09823] text-gray-950 font-black text-xs rounded-xl shadow-md transition flex items-center gap-2"
               >
-                <span>📞 Dial 1066 (Toll-Free)</span>
+                <span>📞 Dial 1800-200-FLOW (Toll-Free)</span>
               </a>
               <a
-                href="tel:+912040151066"
+                href="tel:+912026124000"
                 className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition flex items-center gap-2"
               >
-                <span>Apollo Desk: +91 20 4015 1066</span>
+                <span>Direct Desk: +91 (020) 2612-4000</span>
               </a>
             </div>
           </div>
@@ -515,13 +515,13 @@ function HomePage() {
           onClose={() => setCallModalDoctor(null)}
         />
 
-        {/* FLOATING APOLLO HELPER BUBBLE */}
+        {/* FLOATING HELPER BUBBLE */}
         <ApolloHelperBubble />
       </main>
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 py-6 text-center text-xs text-gray-400">
-        MediFlow AI &copy; Smart Hospital Appointment &amp; Doctor Availability Management System &bull; Apollo-Grade Specialist Network
+        MediFlow AI &copy; Smart Hospital Appointment &amp; Doctor Availability Management System &bull; Production Architecture
       </footer>
     </div>
   );

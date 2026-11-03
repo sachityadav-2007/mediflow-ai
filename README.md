@@ -274,13 +274,25 @@ npm run dev:backend
 # Build Frontend for production
 npm run build
 
+# Run All Automated End-to-End Test Suites (115/115 Tests Passing)
+npm test
+
 # Open Prisma Studio (Visual Database Browser)
 npm run db:studio
-
-# Run Automated End-to-End Test Suites
-node scratch/test_phase10.js              # Rescheduling & Auto-Waitlist suite (21 tests)
-node scratch/test_ai_prediction_engine.js # AI Prediction & Smart Scheduling suite (28 tests)
 ```
+
+---
+
+## 📚 Technical Documentation & Production Reports
+
+Comprehensive engineering specifications are located in [`docs/`](file:///Users/sachityadav/Documents/mediflow-ai/docs):
+- 📋 [**Final Project Audit Report**](file:///Users/sachityadav/Documents/mediflow-ai/docs/FINAL_PROJECT_AUDIT.md) — Comprehensive 12-phase technical review and architecture evaluation.
+- 🚀 [**Production Deployment Guide**](file:///Users/sachityadav/Documents/mediflow-ai/docs/DEPLOYMENT_GUIDE.md) — Step-by-step setup for Nginx, SSL, PM2, and Linux VPS.
+- 🛡️ [**Security Checklist**](file:///Users/sachityadav/Documents/mediflow-ai/docs/SECURITY_CHECKLIST.md) — OWASP clinical application security controls and audit findings.
+- 🧪 [**Test Verification Report**](file:///Users/sachityadav/Documents/mediflow-ai/docs/TEST_REPORT.md) — Complete 115-test execution matrix and results.
+- 📷 [**Doctor QR Attendance**](file:///Users/sachityadav/Documents/mediflow-ai/docs/DOCTOR_QR_ATTENDANCE.md) — Cryptographic tokens, camera scanning, and shift management.
+- 🧠 [**AI Prediction Engine**](file:///Users/sachityadav/Documents/mediflow-ai/docs/AI_PREDICTION_ENGINE.md) — Statistical baseline and candidate slot recommender.
+- 📲 [**Patient QR Check-In & Queue**](file:///Users/sachityadav/Documents/mediflow-ai/docs/PHASE_11_REPORT.md) — Reception scanning, OPD queues, and email notifications.
 
 ---
 

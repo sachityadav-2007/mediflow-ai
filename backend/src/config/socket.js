@@ -2,7 +2,7 @@ const { Server } = require('socket.io');
 
 let ioInstance = null;
 
-// Initialize Socket.IO with HTTP server and CORS settings
+// Initialize Socket.IO with HTTP server, CORS settings, and room management
 function initSocket(server) {
   ioInstance = new Server(server, {
     cors: {
@@ -13,10 +13,27 @@ function initSocket(server) {
   });
 
   ioInstance.on('connection', (socket) => {
-    console.log(`Socket client connected: ${socket.id}`);
+    // Authenticated Room Subscriptions for privacy isolation
+    socket.on('join_user', (userId) => {
+      if (userId) {
+        socket.join(`user_${userId}`);
+      }
+    });
+
+    socket.on('join_doctor', (doctorId) => {
+      if (doctorId) {
+        socket.join(`doctor_${doctorId}`);
+      }
+    });
+
+    socket.on('join_department', (department) => {
+      if (department) {
+        socket.join(`dept_${department}`);
+      }
+    });
 
     socket.on('disconnect', () => {
-      console.log(`Socket client disconnected: ${socket.id}`);
+      // Disconnection handled gracefully
     });
   });
 

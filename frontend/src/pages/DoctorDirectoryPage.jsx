@@ -7,7 +7,7 @@ import DoctorCard from '../components/DoctorCard';
 import CallNowModal from '../components/CallNowModal';
 import ApolloHelperBubble from '../components/ApolloHelperBubble';
 
-// Canonical Apollo Hospitals specialities list matching production Apollo directory
+// Canonical hospital specialities list for specialist directory
 const CANONICAL_SPECIALITIES = [
   'Anesthesiology',
   'Bariatrics',
@@ -34,7 +34,6 @@ const CANONICAL_SPECIALITIES = [
 const CANONICAL_CITIES = [
   'Pune',
   'Ahmedabad',
-  'Aragonda',
   'Bangalore',
   'Chennai',
   'Delhi NCR',
@@ -49,7 +48,7 @@ function DoctorDirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Apollo Filter States
+  // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialities, setSelectedSpecialities] = useState([]);
   const [specialitySearch, setSpecialitySearch] = useState('');
@@ -202,28 +201,26 @@ function DoctorDirectoryPage() {
       )}
 
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex-1">
-        {/* Breadcrumb Navigation (Apollo Hospitals style) */}
+        {/* Breadcrumb Navigation */}
         <nav className="flex items-center gap-2 text-xs text-gray-500 mb-4 font-medium">
           <Link to="/" className="hover:text-blue-600 transition">
             Home
           </Link>
           <span>&gt;</span>
-          <span className="font-semibold text-gray-800">Doctors</span>
+          <span className="font-semibold text-gray-800">Doctors Directory</span>
         </nav>
 
-        {/* Header: Title, Total Count & Apollo-Style Search Bar */}
+        {/* Header: Title, Total Count & Search Bar */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#111827] tracking-tight">
-              Best Doctors In {selectedCity === 'ALL' ? 'Apollo Network' : selectedCity}
+              Best Specialists In {selectedCity === 'ALL' ? 'MediFlow Network' : selectedCity}
             </h1>
             <div className="flex items-center gap-3 mt-1.5">
               <span className="text-sm font-semibold text-gray-600">
-                Total Doctors:{' '}
+                Verified Specialists:{' '}
                 <strong className="text-blue-700 font-bold">
-                  {selectedSpecialities.length === 0 && !searchQuery.trim()
-                    ? `109 (${filteredDoctors.length} On Duty)`
-                    : filteredDoctors.length}
+                  {filteredDoctors.length} {filteredDoctors.length === 1 ? 'Doctor' : 'Doctors'}
                 </strong>
               </span>
               <span className="text-gray-300">|</span>
@@ -233,14 +230,14 @@ function DoctorDirectoryPage() {
             </div>
           </div>
 
-          {/* Top Right Doctor Search Bar with Apollo Blue Circular Search Button */}
+          {/* Top Right Doctor Search Bar */}
           <div className="w-full md:w-96">
             <div className="relative flex items-center">
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for Doctors"
+                placeholder="Search for Doctors by Name, Speciality, or Room"
                 className="w-full pl-4 pr-12 py-2.5 text-sm bg-white border border-gray-300 rounded-xl shadow-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none placeholder:text-gray-400 font-medium"
               />
               <button
@@ -264,7 +261,7 @@ function DoctorDirectoryPage() {
         {/* Two-Column Layout: Sidebar Filters + Doctors Grid */}
         <div className="flex flex-col md:flex-row gap-6 items-start">
           {/* ============================================================= */}
-          {/* LEFT SIDEBAR: Apollo Hospitals "Filter By" Section             */}
+          {/* LEFT SIDEBAR: "Filter By" Section                              */}
           {/* ============================================================= */}
           <aside className="w-full md:w-64 lg:w-72 bg-white rounded-2xl border border-gray-200 shadow-xs p-5 shrink-0 space-y-6">
             {/* Filter Header */}
@@ -355,7 +352,7 @@ function DoctorDirectoryPage() {
               )}
             </div>
 
-            {/* 2. City Accordion (Apollo style) */}
+            {/* 2. City Accordion */}
             <div className="pt-4 border-t border-gray-100">
               <button
                 type="button"
@@ -363,7 +360,7 @@ function DoctorDirectoryPage() {
                 className="w-full flex items-center justify-between mb-2 text-left cursor-pointer"
               >
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-800">
-                  City
+                  Campus / City
                 </h3>
                 <span className="text-xs text-gray-400 font-bold">
                   {cityExpanded ? '▲' : '▼'}
@@ -398,7 +395,7 @@ function DoctorDirectoryPage() {
                       className="text-[#0072CE] focus:ring-[#0072CE] cursor-pointer"
                     />
                     <span className={`text-xs ${selectedCity === 'ALL' ? 'font-bold text-[#0072CE]' : 'text-gray-700 font-medium'}`}>
-                      All Cities
+                      All Campuses
                     </span>
                   </label>
                 </div>
@@ -419,7 +416,7 @@ function DoctorDirectoryPage() {
                     onChange={() => setSelectedPresence('ALL')}
                     className="text-[#0072CE] cursor-pointer"
                   />
-                  <span>All Doctors</span>
+                  <span>All Registered Doctors</span>
                 </label>
                 <label className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 cursor-pointer">
                   <input
@@ -494,7 +491,7 @@ function DoctorDirectoryPage() {
           </aside>
 
           {/* ============================================================= */}
-          {/* RIGHT MAIN CONTENT: Doctor Cards Grid (Apollo Style)          */}
+          {/* RIGHT MAIN CONTENT: Doctor Cards Grid                         */}
           {/* ============================================================= */}
           <div className="flex-1 w-full">
             {loading ? (
@@ -540,13 +537,13 @@ function DoctorDirectoryPage() {
           onClose={() => setCallModalDoctor(null)}
         />
 
-        {/* FLOATING APOLLO HELPER BUBBLE */}
+        {/* FLOATING HELPER BUBBLE */}
         <ApolloHelperBubble />
       </main>
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 py-6 mt-12 text-center text-xs text-gray-400">
-        MediFlow AI &copy; Smart Hospital Appointment &amp; Doctor Availability Management System &bull; Apollo-Grade Specialist Network
+        MediFlow AI &copy; Smart Hospital Appointment &amp; Doctor Availability Management System &bull; Production Architecture
       </footer>
     </div>
   );

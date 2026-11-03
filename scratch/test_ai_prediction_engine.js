@@ -135,7 +135,10 @@ async function runAIEngineTests() {
       for (let i = 1; i <= 14; i++) {
         d.setDate(d.getDate() + 1);
         if (d.getDay() === targetDayIndex) {
-          return d.toISOString().split('T')[0];
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
         }
       }
     };

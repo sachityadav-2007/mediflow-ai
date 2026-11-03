@@ -1,4 +1,5 @@
 const prisma = require('../../config/db');
+const mlServiceClient = require('./mlServiceClient');
 const { predictDoctorAvailability } = require('./availabilityPredictor');
 const {
   getDepartmentDemand,
@@ -76,6 +77,20 @@ const getAvailability = async (doctorId, date, startTime = null) => {
   if (cached) return { ...cached, isCached: true };
 
   const result = await predictDoctorAvailability(doctorId, date, startTime);
+
+  // Advisory ML Microservice Query
+  try {
+    const mlAdvisory = await mlServiceClient.predictDoctorAvailability({
+      doctorId,
+      date,
+      startTime,
+      department: result.department,
+    });
+    result.mlAdvisory = mlAdvisory;
+  } catch (err) {
+    result.mlAdvisory = { status: 'insufficient_data', source: 'ml-service-offline' };
+  }
+
   setCached(cacheKey, result);
 
   logPrediction({
@@ -99,11 +114,19 @@ const getDemand = async (department = null) => {
   const slotDemand = await getSlotDemandPatterns(null, department);
   const sevenDayForecast = await getSevenDayDemandForecast(department);
 
+  let mlForecast = null;
+  try {
+    mlForecast = await mlServiceClient.predictDepartmentDemand({ department: department || 'General Medicine' });
+  } catch (err) {
+    mlForecast = { status: 'insufficient_data', source: 'ml-service-offline' };
+  }
+
   const result = {
     department: department || 'ALL_HOSPITAL',
     departmentDemand: deptDemand,
     slotDemandPatterns: slotDemand,
     sevenDayForecast,
+    mlForecast,
   };
 
   setCached(cacheKey, result);
@@ -125,6 +148,26 @@ const getWaitTime = async (doctorId, date, startTime = '10:00') => {
   if (cached) return { ...cached, isCached: true };
 
   const result = await estimateWaitingTime(doctorId, date, startTime);
+
+  // Advisory ML Microservice Query
+  try {
+    const doctor = await prisma.doctor.findUnique({
+      where: { id: doctorId },
+      select: { department: true },
+    });
+    const hour = startTime && startTime.includes(':') ? parseInt(startTime.split(':')[0], 10) : 10;
+    const mlAdvisory = await mlServiceClient.predictWaitingTime({
+      doctorId,
+      department: doctor?.department || 'General Medicine',
+      hourOfDay: hour,
+      queueLengthAhead: result.queuePosition || 0,
+      priorityLevel: 'MEDIUM',
+    });
+    result.mlAdvisory = mlAdvisory;
+  } catch (err) {
+    result.mlAdvisory = { status: 'insufficient_data', source: 'ml-service-offline' };
+  }
+
   setCached(cacheKey, result);
 
   logPrediction({
@@ -136,6 +179,28 @@ const getWaitTime = async (doctorId, date, startTime = '10:00') => {
   });
 
   return result;
+};
+
+const getAppointmentDuration = async ({ doctorId, department, priorityLevel = 'MEDIUM', hourOfDay = 10 }) => {
+  let dept = department;
+  if (!dept && doctorId) {
+    const doc = await prisma.doctor.findUnique({ where: { id: doctorId }, select: { department: true } });
+    dept = doc?.department;
+  }
+  return await mlServiceClient.predictAppointmentDuration({
+    doctorId: doctorId || 'generic-doctor',
+    department: dept || 'General Medicine',
+    priorityLevel,
+    hourOfDay,
+  });
+};
+
+const getModelStatus = async () => {
+  return await mlServiceClient.getModelStatus();
+};
+
+const getModelEvaluation = async () => {
+  return await mlServiceClient.getModelEvaluation();
 };
 
 const getSmartRecommendations = async (params) => {
@@ -251,6 +316,9 @@ module.exports = {
   getSmartRecommendations,
   getDoctorForecast,
   getAdminAnalytics,
+  getAppointmentDuration,
+  getModelStatus,
+  getModelEvaluation,
   clearCache,
 };
 

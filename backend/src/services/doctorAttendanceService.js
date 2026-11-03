@@ -450,8 +450,9 @@ const processDoctorCheckOut = async ({ doctorUser, notes, ipAddress, userAgent }
   }
 
   const now = new Date();
-  const durationMs = now.getTime() - new Date(activeSession.checkInTime).getTime();
-  const durationMinutes = Math.max(1, Math.round(durationMs / 60000));
+  const checkInDate = new Date(activeSession.checkInTime);
+  const durationMs = Math.max(0, now.getTime() - checkInDate.getTime());
+  const durationMinutes = Math.max(0, Math.round(durationMs / 60000));
 
   // Atomic Transaction: Update Attendance, Doctor Presence to OFFLINE, Log Audit
   const result = await prisma.$transaction(async (tx) => {
@@ -532,6 +533,57 @@ const processDoctorCheckOut = async ({ doctorUser, notes, ipAddress, userAgent }
 };
 
 /**
+ * Helper: Auto-expire any active attendance sessions older than 12 hours
+ * Ensures no stale attendance sessions remain permanently open.
+ */
+const autoExpireStaleSessions = async (doctorId = null) => {
+  const thresholdTime = new Date(Date.now() - 12 * 60 * 60 * 1000);
+  const where = {
+    status: 'CHECKED_IN',
+    checkInTime: { lt: thresholdTime },
+  };
+  if (doctorId) where.doctorId = doctorId;
+
+  try {
+    const staleSessions = await prisma.doctorAttendance.findMany({
+      where,
+      include: { doctor: true },
+    });
+
+    for (const session of staleSessions) {
+      const checkInDate = new Date(session.checkInTime);
+      const durationMinutes = Math.min(720, Math.max(0, Math.round((Date.now() - checkInDate.getTime()) / 60000)));
+      await prisma.$transaction([
+        prisma.doctorAttendance.update({
+          where: { id: session.id },
+          data: {
+            status: 'AUTO_CLOSED',
+            checkOutTime: new Date(checkInDate.getTime() + 12 * 60 * 60 * 1000),
+            durationMinutes,
+            checkOutMethod: 'MANUAL',
+            notes: `${session.notes || ''} | [Auto-closed by system: 12-hour shift threshold reached]`.trim(),
+          },
+        }),
+        prisma.doctor.update({
+          where: { id: session.doctorId },
+          data: { currentPresence: 'OFFLINE' },
+        }),
+        prisma.presenceLog.create({
+          data: {
+            doctorId: session.doctorId,
+            status: 'OFFLINE',
+            detectionMethod: 'MANUAL',
+            notes: 'System auto-expired stale shift exceeding 12 hours',
+          },
+        }),
+      ]);
+    }
+  } catch (err) {
+    console.warn('Notice: Error auto-expiring stale sessions:', err.message);
+  }
+};
+
+/**
  * 6. Doctor: Get Current Attendance Status & Today's History
  */
 const getDoctorMyAttendance = async (doctorUser) => {
@@ -550,12 +602,15 @@ const getDoctorMyAttendance = async (doctorUser) => {
     throw new Error('Doctor profile not found.');
   }
 
+  // Auto-expire any stale sessions exceeding 12 hours
+  await autoExpireStaleSessions(doctor.id);
+
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
   const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
   // Active session
-  const activeSession = await prisma.doctorAttendance.findFirst({
+  let activeSession = await prisma.doctorAttendance.findFirst({
     where: {
       doctorId: doctor.id,
       status: 'CHECKED_IN',
@@ -563,6 +618,23 @@ const getDoctorMyAttendance = async (doctorUser) => {
     include: { qrCode: true },
     orderBy: { checkInTime: 'desc' },
   });
+
+  // Authoritative presence synchronization:
+  // If no active check-in exists today, presence must not contradict as PRESENT/AVAILABLE
+  if (!activeSession && (doctor.currentPresence === 'PRESENT' || doctor.currentPresence === 'AVAILABLE')) {
+    await prisma.doctor.update({
+      where: { id: doctor.id },
+      data: { currentPresence: 'OFFLINE' },
+    });
+    doctor.currentPresence = 'OFFLINE';
+  } else if (activeSession && doctor.currentPresence === 'OFFLINE') {
+    // If active session exists but doctor record was marked OFFLINE, restore to PRESENT
+    await prisma.doctor.update({
+      where: { id: doctor.id },
+      data: { currentPresence: 'PRESENT' },
+    });
+    doctor.currentPresence = 'PRESENT';
+  }
 
   // Today's total sessions
   const todaySessions = await prisma.doctorAttendance.findMany({

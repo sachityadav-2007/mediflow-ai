@@ -25,9 +25,37 @@ function BookAppointmentPage() {
   const [selectedDoctorId, setSelectedDoctorId] = useState(preselectedDoctorId);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
 
-  // Today's date formatted as YYYY-MM-DD for min date
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState(preselectedDate || todayStr);
+  // Hospital-local today date string (Asia/Kolkata timezone)
+  const getHospitalTodayStr = () => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    } catch (e) {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  const getSensibleDefaultDate = () => {
+    try {
+      const now = new Date();
+      const istTimeStr = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        hour12: false,
+      }).format(now);
+      const hour = parseInt(istTimeStr, 10);
+      // If after 5 PM (typical OPD close), default to tomorrow
+      if (hour >= 17) {
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(tomorrow);
+      }
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    } catch (e) {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  const todayStr = getHospitalTodayStr();
+  const [selectedDate, setSelectedDate] = useState(preselectedDate || getSensibleDefaultDate());
 
   // Slots states
   const [slotsLoading, setSlotsLoading] = useState(false);

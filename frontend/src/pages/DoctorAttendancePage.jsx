@@ -187,10 +187,11 @@ function DoctorAttendancePage() {
 
   // Format minutes to readable hours and minutes
   const formatDuration = (mins) => {
-    if (!mins || mins < 1) return '0 mins';
+    if (mins === undefined || mins === null) return '0 mins';
+    if (mins === 0) return '< 1 min';
     const h = Math.floor(mins / 60);
     const m = mins % 60;
-    if (h === 0) return `${m} mins`;
+    if (h === 0) return `${m} min${m > 1 ? 's' : ''}`;
     if (m === 0) return `${h} hr${h > 1 ? 's' : ''}`;
     return `${h} hr${h > 1 ? 's' : ''} ${m} min${m > 1 ? 's' : ''}`;
   };
@@ -300,7 +301,9 @@ function DoctorAttendancePage() {
                         isCheckedIn ? 'bg-emerald-500 animate-ping' : 'bg-gray-400'
                       }`}
                     ></span>
-                    {isCheckedIn ? 'CHECKED IN (ON DUTY)' : 'OFFLINE (NOT CHECKED IN)'}
+                    {isCheckedIn
+                      ? `CHECKED IN (${doctor?.currentPresence || 'PRESENT'})`
+                      : 'OFFLINE (NOT CHECKED IN)'}
                   </span>
                   <span className="text-xs text-gray-400 font-medium">
                     Dr. {doctor?.name} ({doctor?.specialization})
@@ -322,7 +325,9 @@ function DoctorAttendancePage() {
                         })}
                       </strong>{' '}
                       &bull; Verification:{' '}
-                      <span className="font-semibold text-emerald-700">QR Scan Verified</span>
+                      <span className="font-semibold text-emerald-700">
+                        {activeSession.checkInMethod === 'QR_SCAN' ? 'QR Scan Verified' : 'Manual Shift Entry'}
+                      </span>
                     </p>
                   </div>
                 ) : (
@@ -470,6 +475,7 @@ function DoctorAttendancePage() {
                         {new Date(s.checkInTime).toLocaleTimeString([], {
                           hour: '2-digit',
                           minute: '2-digit',
+                          second: '2-digit',
                         })}
                       </td>
                       <td className="py-3 font-mono text-gray-600">
@@ -477,11 +483,14 @@ function DoctorAttendancePage() {
                           ? new Date(s.checkOutTime).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
+                              second: '2-digit',
                             })
                           : 'Ongoing'}
                       </td>
                       <td className="py-3 font-semibold text-blue-700">
-                        {s.durationMinutes ? formatDuration(s.durationMinutes) : 'In Progress'}
+                        {s.durationMinutes !== undefined && s.durationMinutes !== null
+                          ? formatDuration(s.durationMinutes)
+                          : 'In Progress'}
                       </td>
                       <td className="py-3">
                         <span

@@ -25,6 +25,30 @@ const VALID_APPOINTMENT_STATUSES = [
   'NO_SHOW',
 ];
 
+const HOSPITAL_TIMEZONE = process.env.HOSPITAL_TIMEZONE || 'Asia/Kolkata';
+
+/**
+ * Returns today's date formatted as YYYY-MM-DD in the hospital local timezone.
+ */
+const getHospitalTodayDateStr = () => {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: HOSPITAL_TIMEZONE }).format(new Date());
+};
+
+/**
+ * Returns the current time in the hospital local timezone as minutes from midnight.
+ */
+const getHospitalCurrentMinutes = () => {
+  const now = new Date();
+  const timeStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: HOSPITAL_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now);
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+};
+
 /**
  * 1. Get available appointment slots for a specific doctor and date
  */
@@ -35,6 +59,19 @@ const getAvailableSlots = async (doctorId, dateStr) => {
 
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     throw new Error('Valid appointment date (YYYY-MM-DD) is required.');
+  }
+
+  const hospitalToday = getHospitalTodayDateStr();
+  if (dateStr < hospitalToday) {
+    return {
+      success: true,
+      available: false,
+      reason: 'PAST_DATE',
+      message: 'Cannot query or book appointment slots for past dates.',
+      doctorId,
+      date: dateStr,
+      slots: [],
+    };
   }
 
   // Find doctor and their recurring weekly schedules
@@ -208,13 +245,18 @@ const bookAppointment = async ({
     throw new Error('Selected doctor does not exist.');
   }
 
-  if (doctor.currentPresence === 'OFFLINE') {
-    throw new Error('Doctor is currently OFFLINE and cannot accept appointments.');
-  }
-
-  // 3. Verify date format and doctor working schedule
+  // 3. Verify date format and past date boundary
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new Error('Valid appointment date (YYYY-MM-DD) is required.');
+  }
+
+  const hospitalToday = getHospitalTodayDateStr();
+  if (date < hospitalToday) {
+    throw new Error('Cannot book appointments for past dates.');
+  }
+
+  if (doctor.currentPresence === 'OFFLINE') {
+    throw new Error('Doctor is currently OFFLINE and cannot accept appointments.');
   }
 
   const dayOfWeek = getDayOfWeekFromDate(date);
@@ -239,6 +281,14 @@ const bookAppointment = async ({
     throw new Error(
       `Selected time (${startTime}) is outside the doctor's working hours (${activeSchedule.startTime} - ${activeSchedule.endTime}).`
     );
+  }
+
+  // If booking for today, prevent booking past time slots
+  if (date === hospitalToday) {
+    const currentMin = getHospitalCurrentMinutes();
+    if (slotStartMin <= currentMin) {
+      throw new Error('Cannot book an appointment for a time slot that has already passed today.');
+    }
   }
 
   // Calculate default endTime if not passed
@@ -830,6 +880,20 @@ const rescheduleAppointment = async (
 
   if (appointment.status === 'COMPLETED') {
     throw new Error('Cannot reschedule an already completed appointment.');
+  }
+
+  // Verify date is not in the past
+  const hospitalToday = getHospitalTodayDateStr();
+  if (newDate < hospitalToday) {
+    throw new Error('Cannot reschedule appointments to past dates.');
+  }
+
+  // If rescheduling to today, prevent choosing past time slots
+  if (newDate === hospitalToday) {
+    const currentMin = getHospitalCurrentMinutes();
+    if (timeToMinutes(newStartTime) <= currentMin) {
+      throw new Error('Cannot reschedule to a time slot that has already passed today.');
+    }
   }
 
   // Verify doctor is not OFFLINE

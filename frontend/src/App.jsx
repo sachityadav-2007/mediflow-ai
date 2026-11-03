@@ -119,6 +119,14 @@ function App() {
             }
           />
           <Route
+            path="/admin/intelligence"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard initialTab="intelligence" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/doctor/dashboard"
             element={
               <ProtectedRoute allowedRoles={['DOCTOR']}>
@@ -128,6 +136,14 @@ function App() {
           />
           <Route
             path="/doctor/attendance"
+            element={
+              <ProtectedRoute allowedRoles={['DOCTOR']}>
+                <DoctorAttendancePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/attendance"
             element={
               <ProtectedRoute allowedRoles={['DOCTOR']}>
                 <DoctorAttendancePage />

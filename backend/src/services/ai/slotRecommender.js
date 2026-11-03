@@ -212,19 +212,77 @@ const getRecommendedSlots = async ({
             formattedWaitRange: waitEstimate.formattedWaitRange,
             queuePosition: waitEstimate.queuePosition,
             recommendationReason: scoring.summary,
-            aiExplanation: `${scoring.summary} (Doctor availability certainty: ${Math.round(
+            scoreType: 'RULE_BASED_HEURISTIC',
+            aiExplanation: `${scoring.summary} (Doctor availability estimate: ${Math.round(
               availPrediction.probability * 100
-            )}%, Expected queue wait: ~${waitEstimate.estimatedWaitMinutes} mins).`,
+            )}%, Expected intake wait: ~${waitEstimate.estimatedWaitMinutes} mins).`,
           });
         }
       }
     }
   }
 
-  // 4. Sort descending by AI Recommendation Score
+  // 4. Sort candidate slots descending by AI Recommendation Score
   candidateScoredSlots.sort((a, b) => b.aiScore - a.aiScore);
 
-  const topRecommendations = candidateScoredSlots.slice(0, Number(limit));
+  // 5. Enforce Diversity & Deduplication:
+  // Instead of taking 5 consecutive identical slots from the same doctor,
+  // spread recommendations across diverse specialists and distinct time bands
+  const topRecommendations = [];
+  const seenSlotKeys = new Set();
+  const seenDoctorDates = new Set();
+
+  const toMinutes = (t) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  // Pass 1: Select top candidate slot per doctor per date (maximizes specialist diversity)
+  for (const slot of candidateScoredSlots) {
+    const docDateKey = `${slot.doctorId}_${slot.date}`;
+    const slotKey = `${slot.doctorId}_${slot.date}_${slot.startTime}`;
+    if (seenSlotKeys.has(slotKey)) continue;
+
+    if (!seenDoctorDates.has(docDateKey)) {
+      seenDoctorDates.add(docDateKey);
+      seenSlotKeys.add(slotKey);
+      topRecommendations.push(slot);
+      if (topRecommendations.length >= Number(limit)) break;
+    }
+  }
+
+  // Pass 2: If limit not reached, select distinct time windows (separated by at least 60 mins)
+  if (topRecommendations.length < Number(limit)) {
+    for (const slot of candidateScoredSlots) {
+      const slotKey = `${slot.doctorId}_${slot.date}_${slot.startTime}`;
+      if (seenSlotKeys.has(slotKey)) continue;
+
+      const sameDoctorSlots = topRecommendations.filter(
+        (s) => s.doctorId === slot.doctorId && s.date === slot.date
+      );
+      const isTooClose = sameDoctorSlots.some((s) => {
+        return Math.abs(toMinutes(s.startTime) - toMinutes(slot.startTime)) < 60;
+      });
+
+      if (!isTooClose) {
+        seenSlotKeys.add(slotKey);
+        topRecommendations.push(slot);
+        if (topRecommendations.length >= Number(limit)) break;
+      }
+    }
+  }
+
+  // Pass 3: Fill any remaining capacity
+  if (topRecommendations.length < Number(limit)) {
+    for (const slot of candidateScoredSlots) {
+      const slotKey = `${slot.doctorId}_${slot.date}_${slot.startTime}`;
+      if (!seenSlotKeys.has(slotKey)) {
+        seenSlotKeys.add(slotKey);
+        topRecommendations.push(slot);
+        if (topRecommendations.length >= Number(limit)) break;
+      }
+    }
+  }
 
   return {
     success: true,
@@ -232,14 +290,20 @@ const getRecommendedSlots = async ({
     scannedSlots: candidateScoredSlots.length,
     recommendations: topRecommendations,
     meta: {
-      algorithm: 'v1.0-explainable-multi-factor-scoring',
+      algorithm: 'v2.0-explainable-multi-factor-scoring',
+      scoreType: 'RULE_BASED_EXPLAINABLE_HEURISTIC',
+      mlComponents: {
+        doctorAvailability: 'STATISTICAL_SCHEDULE_MODEL',
+        estimatedWaitingTime: 'QUEUE_VELOCITY_MODEL',
+        slotDemandPattern: 'HISTORICAL_SLOT_UTILIZATION',
+      },
       weights: {
         availabilityCertainty: '35%',
         minimalWaitTime: '25%',
         offPeakComfort: '20%',
         specialistExperience: '20%',
       },
-      note: 'AI scores are purely advisory. Booking confirmation is strictly enforced by the core conflict-prevention booking engine.',
+      note: 'AI scores are purely advisory heuristics. Final booking confirmation is strictly enforced by atomic transaction locking.',
     },
   };
 };

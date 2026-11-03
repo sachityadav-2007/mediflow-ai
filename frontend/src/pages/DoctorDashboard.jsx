@@ -561,9 +561,13 @@ function DoctorDashboard() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3 text-xs">
                 <span className="text-gray-500">
                   Duty Attendance: <strong className="text-emerald-700 font-bold">{Math.round((doctorForecast.todayAvailability?.probability || 0.9) * 100)}%</strong>
+                </span>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-500">
+                  Consultation Pace: <strong className="text-purple-700 font-bold">{doctorData?.consultationDuration || 20}m / patient (Advisory ML)</strong>
                 </span>
               </div>
             </div>

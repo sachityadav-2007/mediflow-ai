@@ -118,6 +118,11 @@ const getDoctorProfileByUserId = async (userId) => {
         orderBy: { timestamp: 'desc' },
         take: 10,
       },
+      attendances: {
+        where: { status: 'CHECKED_IN' },
+        orderBy: { checkInTime: 'desc' },
+        take: 1,
+      },
       appointments: {
         include: {
           patient: {
@@ -144,6 +149,18 @@ const getDoctorProfileByUserId = async (userId) => {
       },
     },
   });
+
+  if (!doctor) return null;
+
+  // Authoritative presence synchronization:
+  // If doctor has no active checked-in attendance session, clinical presence cannot be PRESENT/AVAILABLE
+  if (doctor.attendances.length === 0 && (doctor.currentPresence === 'PRESENT' || doctor.currentPresence === 'AVAILABLE')) {
+    await prisma.doctor.update({
+      where: { id: doctor.id },
+      data: { currentPresence: 'OFFLINE' },
+    });
+    doctor.currentPresence = 'OFFLINE';
+  }
 
   return doctor;
 };
@@ -383,6 +400,49 @@ const updateDoctorPresence = async (doctorId, status, notes = '') => {
 
   // Update doctor presence and write audit log in transaction
   const result = await prisma.$transaction(async (tx) => {
+    // A. Synchronize DoctorAttendance session:
+    // If doctor is checking out to OFFLINE, close any active CHECKED_IN session
+    if (status === 'OFFLINE') {
+      const activeSession = await tx.doctorAttendance.findFirst({
+        where: { doctorId, status: 'CHECKED_IN' },
+        orderBy: { checkInTime: 'desc' },
+      });
+      if (activeSession) {
+        const now = new Date();
+        const durationMs = Math.max(0, now.getTime() - new Date(activeSession.checkInTime).getTime());
+        const durationMinutes = Math.max(0, Math.round(durationMs / 60000));
+        await tx.doctorAttendance.update({
+          where: { id: activeSession.id },
+          data: {
+            checkOutTime: now,
+            durationMinutes,
+            status: 'CHECKED_OUT',
+            checkOutMethod: 'MANUAL',
+            notes: notes ? `${activeSession.notes || ''} | Dashboard Offline: ${notes}` : activeSession.notes,
+          },
+        });
+      }
+    } else {
+      // If setting to active clinical presence (PRESENT, AVAILABLE, BUSY, IN_CONSULTATION, ON_BREAK),
+      // ensure an active attendance session exists so attendance and presence never contradict
+      const activeSession = await tx.doctorAttendance.findFirst({
+        where: { doctorId, status: 'CHECKED_IN' },
+        orderBy: { checkInTime: 'desc' },
+      });
+      if (!activeSession) {
+        const docRecord = await tx.doctor.findUnique({ where: { id: doctorId } });
+        await tx.doctorAttendance.create({
+          data: {
+            doctorId,
+            location: docRecord?.roomNumber ? `Doctor Clinic - ${docRecord.roomNumber}` : 'MediFlow Central OPD Suite',
+            status: 'CHECKED_IN',
+            checkInMethod: 'MANUAL',
+            notes: notes || 'Manual clinical presence activation from Doctor Portal',
+          },
+        });
+      }
+    }
+
     // 1. Update doctor currentPresence
     const updatedDoctor = await tx.doctor.update({
       where: { id: doctorId },
@@ -397,7 +457,7 @@ const updateDoctorPresence = async (doctorId, status, notes = '') => {
       data: {
         doctorId,
         status,
-        detectionMethod: 'MANUAL', // Recorded as MANUAL for now
+        detectionMethod: 'MANUAL',
         notes: notes || `Status updated to ${status} by doctor`,
       },
     });
@@ -418,6 +478,14 @@ const updateDoctorPresence = async (doctorId, status, notes = '') => {
       doctorId: result.doctorId,
       presenceStatus: result.currentPresence,
       updatedAt: result.log.timestamp,
+    });
+    // Attendance monitor event
+    io.emit('doctor_attendance_updated', {
+      doctorId: result.doctorId,
+      doctorName: result.doctorName,
+      action: result.currentPresence === 'OFFLINE' ? 'CHECK_OUT' : 'CHECK_IN',
+      presenceStatus: result.currentPresence,
+      timestamp: result.log.timestamp,
     });
     // Backward-compatible alias
     io.emit('doctor_presence_changed', {

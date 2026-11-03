@@ -1,0 +1,68 @@
+[
+  {
+    "endpoint": "Health Check (/api/health)",
+    "requests": 50,
+    "avgLatencyMs": 0.35,
+    "p50LatencyMs": 0.33,
+    "p95LatencyMs": 0.52,
+    "minLatencyMs": 0.23,
+    "maxLatencyMs": 0.62,
+    "throughputReqSec": 2631.6,
+    "errorRatePct": 0
+  },
+  {
+    "endpoint": "Public Doctor Directory (/api/doctors)",
+    "requests": 50,
+    "avgLatencyMs": 0.82,
+    "p50LatencyMs": 0.81,
+    "p95LatencyMs": 0.96,
+    "minLatencyMs": 0.67,
+    "maxLatencyMs": 1.11,
+    "throughputReqSec": 1190.5,
+    "errorRatePct": 0
+  },
+  {
+    "endpoint": "AI Doctor Availability Forecast (/api/ai/doctor-availability)",
+    "requests": 50,
+    "avgLatencyMs": 0.79,
+    "p50LatencyMs": 0.58,
+    "p95LatencyMs": 0.85,
+    "minLatencyMs": 0.43,
+    "maxLatencyMs": 7.05,
+    "throughputReqSec": 1250,
+    "errorRatePct": 0
+  },
+  {
+    "endpoint": "AI Waiting Time Estimation (/api/ai/waiting-time)",
+    "requests": 50,
+    "avgLatencyMs": 0.67,
+    "p50LatencyMs": 0.57,
+    "p95LatencyMs": 0.83,
+    "minLatencyMs": 0.42,
+    "maxLatencyMs": 5.63,
+    "throughputReqSec": 1470.6,
+    "errorRatePct": 0
+  },
+  {
+    "endpoint": "AI Smart Slot Recommender (/api/ai/recommended-slots)",
+    "requests": 50,
+    "avgLatencyMs": 0.83,
+    "p50LatencyMs": 0.78,
+    "p95LatencyMs": 1.09,
+    "minLatencyMs": 0.66,
+    "maxLatencyMs": 1.25,
+    "throughputReqSec": 1190.5,
+    "errorRatePct": 0
+  },
+  {
+    "endpoint": "Department Demand Forecast (/api/ai/appointment-demand)",
+    "requests": 50,
+    "avgLatencyMs": 0.59,
+    "p50LatencyMs": 0.52,
+    "p95LatencyMs": 0.62,
+    "minLatencyMs": 0.44,
+    "maxLatencyMs": 4.2,
+    "throughputReqSec": 1612.9,
+    "errorRatePct": 0
+  }
+]

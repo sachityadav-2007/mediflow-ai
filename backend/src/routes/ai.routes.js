@@ -7,6 +7,9 @@ const {
   getDepartmentForecast,
   getDoctorForecast,
   getAdminAnalytics,
+  getAppointmentDuration,
+  getModelStatus,
+  getAdminModelEvaluation,
 } = require('../controllers/ai.controller');
 const {
   authenticateUser,
@@ -60,6 +63,29 @@ router.get(
   authenticateUser,
   authorizeRoles('ADMIN'),
   getAdminAnalytics
+);
+
+/**
+ * 8. Predict Consultation Duration (Advisory ML)
+ * GET /api/ai/appointment-duration?doctorId=...&department=...
+ */
+router.get('/appointment-duration', authenticateUser, getAppointmentDuration);
+
+/**
+ * 9. Real-Time Model Operational Status
+ * GET /api/ai/model-status
+ */
+router.get('/model-status', authenticateUser, getModelStatus);
+
+/**
+ * 10. ML Model Registry & Evaluation Benchmarks (Admin only)
+ * GET /api/ai/admin/evaluation
+ */
+router.get(
+  '/admin/evaluation',
+  authenticateUser,
+  authorizeRoles('ADMIN'),
+  getAdminModelEvaluation
 );
 
 module.exports = router;

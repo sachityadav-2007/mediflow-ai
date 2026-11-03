@@ -16,6 +16,7 @@ import {
   getQRScanActivity,
   getAttendanceHistory,
 } from '../services/api';
+import AIIntelligenceCenter from '../components/AIIntelligenceCenter';
 import { useSocket, useSocketStatus } from '../hooks/useSocket';
 
 function AdminDashboard({ initialTab = 'overview' }) {
@@ -40,6 +41,7 @@ function AdminDashboard({ initialTab = 'overview' }) {
       appointments: '/admin/appointments',
       waitlist: '/admin/waitlist',
       attendance: '/admin/attendance',
+      intelligence: '/admin/intelligence',
     };
     navigate(routeMap[tabKey] || '/admin/dashboard');
   };
@@ -513,6 +515,7 @@ function AdminDashboard({ initialTab = 'overview' }) {
             { key: 'appointments', label: `📅 Appointments (${appointments.length})` },
             { key: 'waitlist', label: `⏳ Smart Waitlist (${waitlist.length})` },
             { key: 'attendance', label: '📷 Attendance & QR' },
+            { key: 'intelligence', label: '🧠 AI Intelligence (v2.0 ML)' },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -676,7 +679,12 @@ function AdminDashboard({ initialTab = 'overview' }) {
                       {doctors.slice(0, 5).map((doc) => (
                         <tr key={doc.id} className="hover:bg-gray-50 transition">
                           <td className="py-3 px-4 font-semibold text-gray-900">
-                            {doc.name}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span>{doc.name}</span>
+                              <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-1.5 py-0.5 rounded border border-slate-200">
+                                Simulated Specialist
+                              </span>
+                            </div>
                             <div className="text-xs font-normal text-gray-400">{doc.email}</div>
                           </td>
                           <td className="py-3 px-4 text-gray-700">{doc.specialization}</td>
@@ -857,7 +865,12 @@ function AdminDashboard({ initialTab = 'overview' }) {
                     {filteredDoctors.map((doc) => (
                       <tr key={doc.id} className="hover:bg-gray-50 transition">
                         <td className="py-3 px-4">
-                          <p className="font-bold text-gray-900">{doc.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-bold text-gray-900">{doc.name}</p>
+                            <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-1.5 py-0.5 rounded border border-slate-200">
+                              Simulated Specialist
+                            </span>
+                          </div>
                           <p className="text-xs text-gray-400">{doc.email}</p>
                         </td>
                         <td className="py-3 px-4">
@@ -935,7 +948,20 @@ function AdminDashboard({ initialTab = 'overview' }) {
                   <tbody className="divide-y divide-gray-100">
                     {filteredPatients.map((pat) => (
                       <tr key={pat.id} className="hover:bg-gray-50 transition">
-                        <td className="py-3 px-4 font-bold text-gray-900">{pat.name}</td>
+                        <td className="py-3 px-4 font-bold text-gray-900">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{pat.name}</span>
+                            {pat.email?.includes('example.com') || pat.email?.includes('test') || pat.name?.includes('Patient') ? (
+                              <span className="text-[10px] bg-amber-50 text-amber-700 font-semibold px-1.5 py-0.5 rounded border border-amber-200">
+                                Synthetic / Test
+                              </span>
+                            ) : (
+                              <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-1.5 py-0.5 rounded border border-emerald-200">
+                                Verified Profile
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3 px-4 text-xs text-gray-600">{pat.email}</td>
                         <td className="py-3 px-4 text-xs text-gray-600">{pat.phone}</td>
                         <td className="py-3 px-4 text-xs font-semibold text-gray-700">
@@ -1617,6 +1643,11 @@ function AdminDashboard({ initialTab = 'overview' }) {
             </div>
           </div>
         )}
+
+        {/* =================================================================== */}
+        {/* TAB: MEDIFLOW AI INTELLIGENCE CENTER (v2.0 ML)                      */}
+        {/* =================================================================== */}
+        {activeTab === 'intelligence' && <AIIntelligenceCenter />}
 
         {/* =================================================================== */}
         {/* QR CODE PREVIEW & PRINT MODAL                                       */}

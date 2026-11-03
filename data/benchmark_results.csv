@@ -1,0 +1,5 @@
+System,Sample_Size,Mean_Wait_Min,Median_Wait_Min,P90_Wait_Min,Max_Wait_Min,Emergency_Mean_Wait_Min,Doctor_Utilization_Pct,Cancellation_Recovery_Pct,Pred_MAE_Min,Pred_RMSE_Min,Pred_R2
+"System A (Baseline FCFS)",838,17.6,7,51,116,17.3,40.5,0,16.82,25.82,-0.311
+"System B (AI-Assisted)",914,26.2,14,72.7,171,28.9,47.4,47.9,15.69,22.82,0.487
+"System C (Presence-Aware)",857,17.9,7,50.4,151,20.1,41.5,0,16.75,27.6,-0.277
+"System D (Combined MediFlow AI)",1000,30.3,11,73.1,567,14.9,50.3,100,24.05,56.86,0.099

@@ -233,6 +233,80 @@ const getAdminAnalytics = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/ai/appointment-duration
+ * Predict expected consultation duration in minutes
+ */
+const getAppointmentDuration = async (req, res) => {
+  try {
+    const { doctorId, department, priorityLevel, hourOfDay } = req.query;
+    const durationPrediction = await aiService.getAppointmentDuration({
+      doctorId,
+      department,
+      priorityLevel,
+      hourOfDay: hourOfDay ? parseInt(hourOfDay, 10) : 10,
+    });
+
+    return res.status(200).json({
+      success: true,
+      duration: durationPrediction,
+    });
+  } catch (error) {
+    console.error('Error in getAppointmentDuration:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to predict appointment duration.',
+    });
+  }
+};
+
+/**
+ * GET /api/ai/model-status
+ * Check operational status and active versions of ML models
+ */
+const getModelStatus = async (req, res) => {
+  try {
+    const status = await aiService.getModelStatus();
+    return res.status(200).json({
+      success: true,
+      status,
+    });
+  } catch (error) {
+    console.error('Error in getModelStatus:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retrieve ML model status.',
+    });
+  }
+};
+
+/**
+ * GET /api/ai/admin/evaluation
+ * Access master model registry and evaluation benchmarks (ADMIN only)
+ */
+const getAdminModelEvaluation = async (req, res) => {
+  try {
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Administrator privileges required to access ML model evaluations.',
+      });
+    }
+
+    const evaluation = await aiService.getModelEvaluation();
+    return res.status(200).json({
+      success: true,
+      evaluation,
+    });
+  } catch (error) {
+    console.error('Error in getAdminModelEvaluation:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retrieve ML model evaluation registry.',
+    });
+  }
+};
+
 module.exports = {
   getDoctorAvailability,
   getAppointmentDemand,
@@ -241,5 +315,8 @@ module.exports = {
   getDepartmentForecast,
   getDoctorForecast,
   getAdminAnalytics,
+  getAppointmentDuration,
+  getModelStatus,
+  getAdminModelEvaluation,
 };
 

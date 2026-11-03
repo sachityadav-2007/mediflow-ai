@@ -122,10 +122,18 @@ const estimateWaitingTime = async (doctorId, targetDate, startTime = '10:00') =>
 
   let estimatedMinutes = 0;
   if (patientsAheadCount === 0) {
-    // Zero queue: minimal check-in / triage intake duration (5 mins)
-    estimatedMinutes = 5 + presenceOffset;
+    // For opening slot: 5 mins triage intake.
+    // For later slots in the shift: factor in clinic intake and vitals recording pacing.
+    const slotMins = toMins(startTime);
+    let progressionBuffer = 0;
+    if (slotMins >= 660 && slotMins < 780) { // 11:00 - 13:00
+      progressionBuffer = 5;
+    } else if (slotMins >= 780) { // 13:00+
+      progressionBuffer = 10;
+    }
+    estimatedMinutes = 5 + progressionBuffer + presenceOffset;
   } else {
-    // 0.85 scaling factor considers clinical efficiency overlap
+    // 0.75 scaling factor considers clinical consultation efficiency overlap
     estimatedMinutes = Math.round(
       patientsAheadCount * (durationPerPatient * 0.75) +
         emergencyBuffer +

@@ -393,15 +393,27 @@ const updateConsultationState = async (appointmentId, actor, action) => {
   }
 
   let nextStatus = 'IN_PROGRESS';
-  if (action === 'START') nextStatus = 'IN_PROGRESS';
-  else if (action === 'COMPLETE') nextStatus = 'COMPLETED';
-  else if (action === 'NO_SHOW') nextStatus = 'NO_SHOW';
+  const updatePayload = {};
+
+  if (action === 'START') {
+    nextStatus = 'IN_PROGRESS';
+    updatePayload.consultationStartedAt = new Date();
+  } else if (action === 'COMPLETE') {
+    nextStatus = 'COMPLETED';
+    const now = new Date();
+    updatePayload.consultationCompletedAt = now;
+    const startTime = appointment.consultationStartedAt || now;
+    const durationMin = Math.max(1, Math.round((now.getTime() - new Date(startTime).getTime()) / 60000));
+    updatePayload.actualDurationMinutes = durationMin;
+  } else if (action === 'NO_SHOW') {
+    nextStatus = 'NO_SHOW';
+  }
+
+  updatePayload.status = nextStatus;
 
   const updatedAppointment = await prisma.appointment.update({
     where: { id: appointmentId },
-    data: {
-      status: nextStatus,
-    },
+    data: updatePayload,
     include: {
       slot: true,
       patient: { include: { user: true } },

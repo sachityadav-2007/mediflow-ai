@@ -85,7 +85,10 @@ async function runPhase11Tests() {
       testDate.setDate(today.getDate() + i);
       if (testDate.getDay() === targetDayIndex) break;
     }
-    const testDateStr = testDate.toISOString().split('T')[0];
+    const year = testDate.getFullYear();
+    const month = String(testDate.getMonth() + 1).padStart(2, '0');
+    const day = String(testDate.getDate()).padStart(2, '0');
+    const testDateStr = `${year}-${month}-${day}`;
 
     // Pick slot time
     const slotStartTime = availableDay.startTime;

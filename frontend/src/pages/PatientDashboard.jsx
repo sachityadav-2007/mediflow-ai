@@ -284,7 +284,10 @@ function PatientDashboard() {
                         ⏰ <strong>{rec.startTime} &ndash; {rec.endTime}</strong>
                       </div>
                       <div className="text-[11px] text-amber-800">
-                        ⏳ Est. Wait: <strong>~{rec.estimatedWaitMinutes} mins</strong> (Pos #{rec.queuePosition})
+                        ⏳ Est. Intake: <strong>~{rec.estimatedWaitMinutes} mins</strong> (Pos #{rec.queuePosition})
+                      </div>
+                      <div className="text-[9px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 inline-block font-semibold">
+                        ℹ️ Advisory Estimate • Confirmed on check-in
                       </div>
                     </div>
 

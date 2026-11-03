@@ -1,0 +1,121 @@
+{
+  "experimentMetadata": {
+    "title": "MediFlow AI Scientific & Experimental Queue Evaluation",
+    "timestamp": "2026-11-03T17:27:03.219Z",
+    "randomSeed": 42,
+    "simulationConfig": {
+      "numDays": 14,
+      "numDoctors": 9,
+      "slotsPerDoctorDay": 14,
+      "totalSlots": 1764,
+      "targetPatients": 1000,
+      "cancellationProb": 0.16,
+      "doctorLatenessProb": 0.15,
+      "doctorUnscheduledProb": 0.05
+    }
+  },
+  "summary": [
+    {
+      "system": "System A (Baseline FCFS)",
+      "n": 838,
+      "meanWait": 17.6,
+      "medianWait": 7,
+      "p90Wait": 51,
+      "maxWait": 116,
+      "emergencyMeanWait": 17.3,
+      "utilizationRatePct": 40.5,
+      "cancellationRecoveryPct": 0,
+      "predMAE": 16.82,
+      "predRMSE": 25.82,
+      "predR2": -0.311
+    },
+    {
+      "system": "System B (AI-Assisted)",
+      "n": 914,
+      "meanWait": 26.2,
+      "medianWait": 14,
+      "p90Wait": 72.7,
+      "maxWait": 171,
+      "emergencyMeanWait": 28.9,
+      "utilizationRatePct": 47.4,
+      "cancellationRecoveryPct": 47.9,
+      "predMAE": 15.69,
+      "predRMSE": 22.82,
+      "predR2": 0.487
+    },
+    {
+      "system": "System C (Presence-Aware)",
+      "n": 857,
+      "meanWait": 17.9,
+      "medianWait": 7,
+      "p90Wait": 50.4,
+      "maxWait": 151,
+      "emergencyMeanWait": 20.1,
+      "utilizationRatePct": 41.5,
+      "cancellationRecoveryPct": 0,
+      "predMAE": 16.75,
+      "predRMSE": 27.6,
+      "predR2": -0.277
+    },
+    {
+      "system": "System D (Combined MediFlow AI)",
+      "n": 1000,
+      "meanWait": 30.3,
+      "medianWait": 11,
+      "p90Wait": 73.1,
+      "maxWait": 567,
+      "emergencyMeanWait": 14.9,
+      "utilizationRatePct": 50.3,
+      "cancellationRecoveryPct": 100,
+      "predMAE": 24.05,
+      "predRMSE": 56.86,
+      "predR2": 0.099
+    }
+  ],
+  "hypothesisTests": {
+    "RQ1_PresenceAware": {
+      "t": -0.4662,
+      "df": 837,
+      "pValue": 0.6411,
+      "cohensD": 0.012,
+      "dMean": -0.47,
+      "ci95": [
+        -2.43,
+        1.5
+      ]
+    },
+    "RQ2_AIAssisted": {
+      "t": -6.4159,
+      "df": 837,
+      "pValue": "< 0.0001",
+      "cohensD": 0.314,
+      "dMean": -8.94,
+      "ci95": [
+        -11.67,
+        -6.21
+      ]
+    },
+    "RQ3_DoctorUtilization": {
+      "utilA": 40.5,
+      "utilD": 50.3,
+      "delta": 9.8,
+      "relativeGainPct": 24.2
+    },
+    "RQ4_PredictionAccuracy": {
+      "mae": 24.05,
+      "rmse": 56.86,
+      "r2": 0.099
+    },
+    "RQ5_CombinedSystem": {
+      "t": -5.7175,
+      "df": 837,
+      "pValue": "< 0.0001",
+      "cohensD": 0.281,
+      "dMean": -12,
+      "ci95": [
+        -16.12,
+        -7.89
+      ]
+    }
+  }
+}

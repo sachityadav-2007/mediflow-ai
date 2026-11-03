@@ -374,4 +374,44 @@ export const getAttendanceHistory = async (params = {}) => {
   return response.data;
 };
 
+// -----------------------------------------------------------------------------
+// MediFlow AI 2.0: Genuine Machine Learning & Governance Services
+// -----------------------------------------------------------------------------
+
+// Admin / General: Check live status of Python ML models
+export const getMLModelStatus = async () => {
+  const response = await api.get('/api/ai/model-status');
+  return response.data;
+};
+
+// Admin: Get complete Model Evaluation Registry & Baseline Benchmarks
+export const getMLModelEvaluation = async () => {
+  const response = await api.get('/api/ai/admin/evaluation');
+  return response.data;
+};
+
+// General / Doctor: Predict expected consultation duration
+export const getMLAppointmentDuration = async (params = {}) => {
+  const response = await api.get('/api/ai/appointment-duration', { params });
+  return response.data;
+};
+
+// General: Predict doctor availability & delay
+export const getDoctorAvailability = async (params = {}) => {
+  const response = await api.get('/api/ai/doctor-availability', { params });
+  return response.data;
+};
+
+// General: Get estimated patient waiting time
+export const getWaitingTimeEstimate = async (params = {}) => {
+  const response = await api.get('/api/ai/waiting-time', { params });
+  return response.data;
+};
+
+// General: Get department demand forecast
+export const getDepartmentDemandForecast = async (department) => {
+  const response = await api.get('/api/ai/appointment-demand', { params: { department } });
+  return response.data;
+};
+
 export default api;

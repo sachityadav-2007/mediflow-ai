@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node prisma/seed.js",
-    "test": "node ../scratch/test_phase10.js && node ../scratch/test_ai_prediction_engine.js && node ../scratch/test_phase11.js && node ../scratch/test_doctor_qr_attendance.js"
+    "test": "node ../scratch/test_phase10.js && node ../scratch/test_ai_prediction_engine.js && node ../scratch/test_phase11.js && node ../scratch/test_doctor_qr_attendance.js && node ../scratch/test_data_integrity_and_workflow.js && node tests/ml_service_integration.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

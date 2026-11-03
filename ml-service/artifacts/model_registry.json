@@ -1,0 +1,189 @@
+{
+  "system_version": "2.0.0",
+  "description": "MediFlow AI 2.0 Production & Development Model Registry",
+  "models": {
+    "patient_waiting_time": {
+      "model_name": "patient_waiting_time",
+      "target_variable": "actual_waiting_time_minutes",
+      "model_family": "RandomForestRegressor",
+      "version": "1.0.0-dev",
+      "status": "IMPLEMENTED_BUT_INSUFFICIENT_DATA",
+      "training_date": "2026-11-03T18:39:30.158588Z",
+      "dataset_type": "SYNTHETIC_DEVELOPMENT_PIPELINE",
+      "dataset_size": 1000,
+      "date_range": "2026-09-01 to 2026-10-31",
+      "features": [
+        "department",
+        "day_of_week",
+        "hour_of_day",
+        "queue_length_ahead",
+        "priority_level"
+      ],
+      "baseline_algorithm": "DummyRegressor(strategy='mean')",
+      "baseline_metrics": {
+        "model_name": "DummyRegressor (Mean)",
+        "mae": 17.165,
+        "rmse": 21.945,
+        "r2": -0.0015
+      },
+      "model_metrics": {
+        "model_name": "RandomForestRegressor",
+        "mae": 3.861,
+        "rmse": 4.957,
+        "r2": 0.9489
+      },
+      "artifact_path": "artifacts/waiting_time_model.joblib",
+      "insufficient_data_reason": "Production database currently lacks ground-truth patient checkedInAt and consultationStartTime timestamps.",
+      "prospective_collection_plan": "Prisma schema updated with consultationStartedAt. Real training will execute when >= 500 clinical events are recorded."
+    },
+    "doctor_availability_and_delay": {
+      "model_name": "doctor_availability_and_delay",
+      "target_variable": "is_available, is_delayed",
+      "model_family": "RandomForestClassifier",
+      "version": "1.0.0-dev",
+      "status": "IMPLEMENTED_BUT_INSUFFICIENT_DATA",
+      "training_date": "2026-11-03T18:39:30.322971Z",
+      "dataset_type": "SYNTHETIC_DEVELOPMENT_PIPELINE",
+      "dataset_size": 1000,
+      "date_range": "2026-09-01 to 2026-10-31",
+      "features": [
+        "department",
+        "day_of_week",
+        "hour_of_day"
+      ],
+      "baseline_algorithm": "DummyClassifier(strategy='most_frequent')",
+      "baseline_metrics": {
+        "model_name": "DummyClassifier (Most Frequent)",
+        "precision": 0.853,
+        "recall": 1.0,
+        "f1_score": 0.921,
+        "roc_auc": 0.5,
+        "confusion_matrix": [
+          [
+            0,
+            22
+          ],
+          [
+            0,
+            128
+          ]
+        ]
+      },
+      "model_metrics": {
+        "availability": {
+          "model_name": "RandomForestClassifier",
+          "precision": 0.857,
+          "recall": 0.703,
+          "f1_score": 0.773,
+          "roc_auc": 0.504,
+          "confusion_matrix": [
+            [
+              7,
+              15
+            ],
+            [
+              38,
+              90
+            ]
+          ]
+        },
+        "delay": {
+          "model_name": "RandomForestClassifier (Delay)",
+          "precision": 0.2,
+          "recall": 0.409,
+          "f1_score": 0.269,
+          "roc_auc": 0.59,
+          "confusion_matrix": [
+            [
+              92,
+              36
+            ],
+            [
+              13,
+              9
+            ]
+          ]
+        }
+      },
+      "artifact_path": "artifacts/doctor_availability_model.joblib",
+      "insufficient_data_reason": "Database currently contains only 17 doctor attendance records (minimum statistical threshold: >= 100 verified logs per clinician).",
+      "prospective_collection_plan": "QR check-in/check-out workflow will log each clinical shift. Model will retrain when sample size reaches N >= 500."
+    },
+    "appointment_duration": {
+      "model_name": "appointment_duration",
+      "target_variable": "actual_duration_minutes",
+      "model_family": "GradientBoostingRegressor",
+      "version": "1.0.0-dev",
+      "status": "IMPLEMENTED_BUT_INSUFFICIENT_DATA",
+      "training_date": "2026-11-03T18:39:30.441098Z",
+      "dataset_type": "SYNTHETIC_DEVELOPMENT_PIPELINE",
+      "dataset_size": 1000,
+      "date_range": "2026-09-01 to 2026-10-31",
+      "features": [
+        "department",
+        "day_of_week",
+        "hour_of_day",
+        "priority_level"
+      ],
+      "baseline_algorithm": "DummyRegressor(strategy='median')",
+      "baseline_metrics": {
+        "model_name": "DummyRegressor (Median)",
+        "mae": 6.34,
+        "rmse": 8.437,
+        "r2": -0.0287
+      },
+      "model_metrics": {
+        "model_name": "GradientBoostingRegressor",
+        "mae": 4.099,
+        "rmse": 5.603,
+        "r2": 0.5463
+      },
+      "artifact_path": "artifacts/appointment_duration_model.joblib",
+      "insufficient_data_reason": "Production database currently lacks consultation completion timestamps (consultationCompletedAt).",
+      "prospective_collection_plan": "Prisma schema enhanced with consultationStartedAt & consultationCompletedAt to capture actual duration on each completed visit."
+    },
+    "department_demand_forecast": {
+      "model_name": "department_demand_forecast",
+      "target_variable": "daily_appointment_count",
+      "model_family": "RandomForestRegressor (Time-Series Lag)",
+      "version": "1.0.0-dev",
+      "status": "IMPLEMENTED_BUT_INSUFFICIENT_DATA",
+      "training_date": "2026-11-03T18:39:30.557043Z",
+      "dataset_type": "SYNTHETIC_DEVELOPMENT_PIPELINE",
+      "dataset_size": 1080,
+      "date_range": "120 continuous operational days",
+      "features": [
+        "department",
+        "day_of_week",
+        "day_of_month",
+        "month",
+        "is_weekend",
+        "lag_1",
+        "lag_7",
+        "rolling_mean_7"
+      ],
+      "baseline_algorithm": "7-Day Moving Average Baseline",
+      "baseline_metrics": {
+        "model_name": "7-Day Moving Average Baseline",
+        "mae": 6.182,
+        "rmse": 7.68,
+        "wape": 0.3948
+      },
+      "model_metrics": {
+        "model_name": "RandomForestRegressor (Time-Series Lag)",
+        "mae": 3.637,
+        "rmse": 4.636,
+        "wape": 0.2323
+      },
+      "artifact_path": "artifacts/department_demand_model.joblib",
+      "insufficient_data_reason": "Production database currently contains only 16 days of booking history across 9 departments (requires >= 60 days to compute autoregressive seasonal lags without NaN dropouts).",
+      "prospective_collection_plan": "Historical bookings accumulate automatically as appointments are scheduled. Moving average baseline provides interim operational insight."
+    }
+  },
+  "governance_notes": [
+    "All model pipelines are evaluated against explicit empirical baselines using chronological splits.",
+    "Development pipeline verification uses clearly marked SYNTHETIC_DEVELOPMENT_PIPELINE datasets.",
+    "Production status for waiting time, duration, availability, and multi-step demand is set to IMPLEMENTED_BUT_INSUFFICIENT_DATA due to lack of historical check-in/completion timestamps in the initial database.",
+    "Predictions in clinical production are strictly advisory and never override clinician absence or booking conflict validations."
+  ]
+}

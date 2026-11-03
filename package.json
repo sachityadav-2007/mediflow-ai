@@ -1,0 +1,30 @@
+{
+  "name": "mediflow-ai",
+  "version": "1.0.0",
+  "description": "MediFlow AI — Smart Hospital Appointment & Doctor Availability Management System",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/dev.js",
+    "dev": "node scripts/dev.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "build": "npm --prefix frontend run build",
+    "db:validate": "cd backend && npx prisma validate",
+    "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:seed": "cd backend && npm run seed",
+    "db:studio": "cd backend && npx prisma studio",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install"
+  },
+  "keywords": [
+    "hospital-management",
+    "react",
+    "nodejs",
+    "express",
+    "postgresql",
+    "prisma",
+    "socket-io",
+    "tailwind-css"
+  ],
+  "author": "MediFlow AI Team",
+  "license": "ISC"
+}

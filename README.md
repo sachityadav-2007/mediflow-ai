@@ -197,50 +197,49 @@ cd mediflow-ai
 ```
 
 ### 2. Backend Setup
-```bash
-cd server
-npm install
-```
+## 🚀 Quick Start & Unified Commands
 
-Configure `server/.env` based on `server/.env.example`:
-```env
-PORT=5001
-CLIENT_URL=http://localhost:5173
-DATABASE_URL="postgresql://postgres:password@localhost:5432/mediflow_ai?schema=public"
-JWT_SECRET=your_jwt_secret_key_here
-JWT_EXPIRES_IN=7d
-NODE_ENV=development
-```
+You can run the entire full-stack project directly from the root directory:
 
-Run database migrations and seed default data:
 ```bash
-npx prisma migrate dev
-npm run seed
-```
+# 1. Install all dependencies (Frontend + Backend)
+npm run install:all
 
-Start backend development server:
-```bash
+# 2. Setup PostgreSQL database schema & seed Apollo Doctors
+npm run db:migrate
+npm run db:seed
+
+# 3. Start BOTH Backend (5001) & Frontend (5173) with a single command:
 npm run dev
 ```
 
-### 3. Frontend Setup
-In a new terminal window:
+### Individual Service Commands
+
 ```bash
-cd client
-npm install
+# Start Frontend only (React on port 5173)
+npm run dev:frontend
+
+# Start Backend only (Express on port 5001)
+npm run dev:backend
+
+# Build Frontend for production
+npm run build
+
+# Open Prisma Studio (Visual Database Browser)
+npm run db:studio
 ```
 
-Configure `client/.env` based on `client/.env.example`:
-```env
-VITE_API_URL=http://localhost:5001
-```
+---
 
-Start frontend development server:
-```bash
-npm run dev
-```
+## 📁 Project Directory Structure
 
-Open your browser at `http://localhost:5173`.
+The project is cleanly arranged into 3 independent, self-contained tiers:
+
+- 🎨 **`frontend/`** — React 18, Vite, Tailwind CSS, components, pages, context, and hooks.
+- ⚙️ **`backend/`** — Node.js, Express.js, JWT authentication, controllers, routes, and Socket.IO.
+- 🗄️ **`database/`** — PostgreSQL schema, Prisma ORM, migrations, seed script, and ER documentation.
+
+*(For backwards compatibility, `client`, `server`, and `prisma` are symlinked to these directories).*
 
 ---
 
@@ -248,13 +247,13 @@ Open your browser at `http://localhost:5173`.
 
 | Variable | Location | Description |
 |---|---|---|
-| `PORT` | `server/.env` | Port on which the Express server listens (e.g. `5001`). |
-| `CLIENT_URL` | `server/.env` | Allowed origin for CORS and cookies (e.g. `http://localhost:5173`). |
-| `DATABASE_URL` | `server/.env` | PostgreSQL connection string with username, password, host, port, and database name. |
-| `JWT_SECRET` | `server/.env` | Secret cryptographic key for signing JSON Web Tokens. |
-| `JWT_EXPIRES_IN` | `server/.env` | Expiration time frame for JWT sessions (e.g. `7d`). |
-| `NODE_ENV` | `server/.env` | Environment mode (`development` or `production`). |
-| `VITE_API_URL` | `client/.env` | Backend API base URL consumed by Axios and Socket.IO. |
+| `PORT` | `backend/.env` | Port on which the Express server listens (defaults to `5001`). |
+| `CLIENT_URL` | `backend/.env` | Allowed origin for CORS and cookies (`http://localhost:5173`). |
+| `DATABASE_URL` | `backend/.env` | PostgreSQL connection string (`postgresql://postgres:...@localhost:5432/mediflow_ai`). |
+| `JWT_SECRET` | `backend/.env` | Secret cryptographic key for signing JSON Web Tokens. |
+| `JWT_EXPIRES_IN` | `backend/.env` | Expiration time frame for JWT sessions (e.g. `7d`). |
+| `NODE_ENV` | `backend/.env` | Environment mode (`development` or `production`). |
+| `VITE_API_URL` | `frontend/.env` | Backend API base URL (`http://localhost:5001`). |
 
 ---
 

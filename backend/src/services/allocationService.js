@@ -47,7 +47,7 @@ const smartAllocateSlot = async ({
         lte: endOfDay,
       },
       slot: {
-        startTime,
+        startTime: targetStart,
       },
       status: {
         notIn: ['CANCELLED'],
@@ -236,8 +236,8 @@ const smartAllocateSlot = async ({
         data: {
           doctorId,
           slotDate: startOfDay,
-          startTime,
-          endTime: targetEnd || '10:30',
+          startTime: targetStart,
+          endTime: targetEnd,
           status: 'BOOKED',
         },
       });

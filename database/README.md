@@ -84,7 +84,7 @@ npm run db:validate
 # Apply new database migrations
 npm run db:migrate
 
-# Seed database with sample Apollo doctors & patients
+# Seed database with sample MediFlow doctors & patients
 npm run db:seed
 
 # Open Prisma Studio (Visual Web Interface for PostgreSQL)

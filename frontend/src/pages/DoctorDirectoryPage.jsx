@@ -5,7 +5,7 @@ import { getDoctors } from '../services/api';
 import { useSocket } from '../hooks/useSocket';
 import DoctorCard from '../components/DoctorCard';
 import CallNowModal from '../components/CallNowModal';
-import ApolloHelperBubble from '../components/ApolloHelperBubble';
+import MediFlowHelperBubble from '../components/MediFlowHelperBubble';
 
 // Canonical hospital specialities list for specialist directory
 const CANONICAL_SPECIALITIES = [
@@ -538,7 +538,7 @@ function DoctorDirectoryPage() {
         />
 
         {/* FLOATING HELPER BUBBLE */}
-        <ApolloHelperBubble />
+        <MediFlowHelperBubble />
       </main>
 
       {/* Footer */}

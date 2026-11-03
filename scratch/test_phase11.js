@@ -1,8 +1,17 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../backend/.env') });
+try {
+  require('dotenv').config({ path: path.join(__dirname, '../backend/.env') });
+} catch (e) {
+  require('../backend/node_modules/dotenv').config({ path: path.join(__dirname, '../backend/.env') });
+}
 
 const prisma = require('../backend/src/config/db');
-const jwt = require('jsonwebtoken');
+let jwt;
+try {
+  jwt = require('jsonwebtoken');
+} catch (e) {
+  jwt = require('../backend/node_modules/jsonwebtoken');
+}
 const checkInService = require('../backend/src/services/checkInService');
 const emailService = require('../backend/src/services/emailService');
 const {
@@ -282,7 +291,7 @@ async function runPhase11Tests() {
       doctorName: 'Dr. Ketan Vartak',
       date: '2026-11-04',
       time: '10:00 - 10:30',
-      cabin: 'Apollo Wing - Room 302',
+      cabin: 'MediFlow West Wing - Room 302',
     });
     assert(mailBooking && mailBooking.success, 'Booking confirmation email dispatched with MessageId');
 
@@ -291,7 +300,7 @@ async function runPhase11Tests() {
       patientName: 'Rahul Verma',
       appointmentNumber: 'APT-20261103-001',
       doctorName: 'Dr. Ketan Vartak',
-      cabin: 'Apollo Wing - Room 302',
+      cabin: 'MediFlow West Wing - Room 302',
       queuePosition: 2,
     });
     assert(mailCheckIn && mailCheckIn.success, 'Check-in confirmation email dispatched with live queue #');
@@ -305,7 +314,7 @@ async function runPhase11Tests() {
       oldTime: '10:00',
       newDate: '2026-11-05',
       newTime: '11:00 - 11:30',
-      cabin: 'Apollo Wing - Room 302',
+      cabin: 'MediFlow West Wing - Room 302',
     });
     assert(mailReschedule && mailReschedule.success, 'Reschedule notification email dispatched');
 
@@ -326,7 +335,7 @@ async function runPhase11Tests() {
       doctorName: 'Dr. Ketan Vartak',
       date: '2026-11-04',
       time: '10:00 - 10:30',
-      cabin: 'Apollo Wing - Room 302',
+      cabin: 'MediFlow West Wing - Room 302',
     });
     assert(mailReminder && mailReminder.success, 'Configurable appointment reminder email dispatched');
 

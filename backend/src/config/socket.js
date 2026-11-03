@@ -2,14 +2,27 @@ const { Server } = require('socket.io');
 
 let ioInstance = null;
 
-// Initialize Socket.IO with HTTP server, CORS settings, and room management
+// Initialize Socket.IO with HTTP server, dynamic CORS settings, and room management
 function initSocket(server) {
+  const rawOrigins = process.env.CLIENT_URL || 'http://localhost:5173';
+  const allowedOrigins = rawOrigins.split(',').map((o) => o.trim().replace(/\/$/, ''));
+
   ioInstance = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+          return callback(null, true);
+        }
+        if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Socket CORS rejection: Origin '${origin}' is not authorized.`));
+      },
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: true,
     },
+    transports: ['websocket', 'polling'],
   });
 
   ioInstance.on('connection', (socket) => {

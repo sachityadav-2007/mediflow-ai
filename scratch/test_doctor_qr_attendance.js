@@ -1,8 +1,17 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../backend/.env') });
+try {
+  require('dotenv').config({ path: path.join(__dirname, '../backend/.env') });
+} catch (e) {
+  require('../backend/node_modules/dotenv').config({ path: path.join(__dirname, '../backend/.env') });
+}
 
 const prisma = require('../backend/src/config/db');
-const jwt = require('jsonwebtoken');
+let jwt;
+try {
+  jwt = require('jsonwebtoken');
+} catch (e) {
+  jwt = require('../backend/node_modules/jsonwebtoken');
+}
 const doctorAttendanceService = require('../backend/src/services/doctorAttendanceService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mediflow_ai_jwt_secret_dev_key';
@@ -64,7 +73,7 @@ async function runDoctorQRAttendanceTests() {
     // -------------------------------------------------------------------------
     console.log('--- TEST SECTION 1: Admin Hospital QR Generation & Verification ---');
     const qrResult = await doctorAttendanceService.generateHospitalQR({
-      location: 'Apollo Wing - Suite 302',
+      location: 'MediFlow West Wing - Suite 302',
       validityMinutes: 60,
       adminUser,
     });
@@ -78,7 +87,7 @@ async function runDoctorQRAttendanceTests() {
     const decodedToken = jwt.verify(qrResult.signedToken, JWT_SECRET);
     assert(decodedToken.code === qrResult.qrCode.code, 'Decoded JWT code matches database record');
     assert(decodedToken.type === 'HOSPITAL_DOCTOR_ATTENDANCE', 'Token payload enforces HOSPITAL_DOCTOR_ATTENDANCE type');
-    assert(decodedToken.location === 'Apollo Wing - Suite 302', 'Token location matches hospital suite');
+    assert(decodedToken.location === 'MediFlow West Wing - Suite 302', 'Token location matches hospital suite');
 
     // Verify Active QR list contains generated QR
     const activeQRs = await doctorAttendanceService.getActiveHospitalQRCodes();
@@ -194,7 +203,7 @@ async function runDoctorQRAttendanceTests() {
 
     assert(checkInResponse.success === true, 'Doctor check-in processed successfully');
     assert(checkInResponse.attendance.status === 'CHECKED_IN', 'Doctor attendance session created with status CHECKED_IN');
-    assert(checkInResponse.attendance.location === 'Apollo Wing - Suite 302', 'Attendance location matches QR code location');
+    assert(checkInResponse.attendance.location === 'MediFlow West Wing - Suite 302', 'Attendance location matches QR code location');
     assert(checkInResponse.attendance.checkInMethod === 'QR_SCAN', 'Check-in method verified as QR_SCAN');
 
     // Verify Doctor live presence updated in database to PRESENT

@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import ServerStatus from '../components/ServerStatus';
 import DoctorCard from '../components/DoctorCard';
 import CallNowModal from '../components/CallNowModal';
-import ApolloHelperBubble from '../components/ApolloHelperBubble';
+import MediFlowHelperBubble from '../components/MediFlowHelperBubble';
 import { getDoctors } from '../services/api';
 import { useSocket } from '../hooks/useSocket';
 import { useAuth } from '../context/AuthContext';
@@ -516,7 +516,7 @@ function HomePage() {
         />
 
         {/* FLOATING HELPER BUBBLE */}
-        <ApolloHelperBubble />
+        <MediFlowHelperBubble />
       </main>
 
       {/* Footer */}

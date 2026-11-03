@@ -1314,8 +1314,8 @@ function AdminDashboard({ initialTab = 'overview' }) {
                       <option value="Main Hospital OPD Suite - Ground Floor">
                         Main Hospital OPD Suite - Ground Floor
                       </option>
-                      <option value="Apollo Wing - Block A (Cardio &amp; Neuro)">
-                        Apollo Wing - Block A (Cardio &amp; Neuro)
+                      <option value="MediFlow West Wing - Block A (Cardio &amp; Neuro)">
+                        MediFlow West Wing - Block A (Cardio &amp; Neuro)
                       </option>
                       <option value="Emergency &amp; Trauma Center - Bay 1">
                         Emergency &amp; Trauma Center - Bay 1

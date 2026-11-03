@@ -14,12 +14,33 @@ const checkInRoutes = require('./routes/checkIn.routes');
 
 const app = express();
 
-// Configure CORS for frontend access with cookie credentials
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-app.use(cors({
-  origin: clientUrl,
-  credentials: true
-}));
+// Trust reverse proxies (Render, Vercel, Cloudflare, Nginx) for secure cookie forwarding
+app.set('trust proxy', 1);
+
+// Configure dynamic CORS supporting single origin, comma-separated staging/prod domains, or localhost
+const rawOrigins = process.env.CLIENT_URL || 'http://localhost:5173';
+const allowedOrigins = rawOrigins.split(',').map((o) => o.trim().replace(/\/$/, ''));
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server health checks)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        return callback(null, true);
+      }
+
+      // Allow localhost variants in development or staging
+      if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS policy rejection: Origin '${origin}' is not authorized.`));
+    },
+    credentials: true,
+  })
+);
 
 // Parse incoming JSON requests and cookies
 app.use(express.json());
@@ -38,4 +59,3 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/check-in', checkInRoutes);
 
 module.exports = app;
-

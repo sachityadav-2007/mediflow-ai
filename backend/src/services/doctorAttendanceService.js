@@ -13,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'mediflow_ai_jwt_secret_dev_key';
 /**
  * 1. Admin: Generate Hospital Attendance QR Code
  * @param {Object} params
- * @param {string} params.location - e.g. "Main Hospital OPD Suite", "Apollo Wing - Block A"
+ * @param {string} params.location - e.g. "Main Hospital OPD Suite", "MediFlow West Wing - Block A"
  * @param {number} [params.validityMinutes=60] - Expiration duration in minutes
  * @param {Object} params.adminUser - Authenticated Admin
  */

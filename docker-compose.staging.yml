@@ -1,0 +1,49 @@
+# =============================================================================
+# MediFlow AI — Staging Environment Docker Compose
+# Runs PostgreSQL 16, Express API with Prisma, and Nginx reverse proxy
+# =============================================================================
+version: '3.8'
+
+services:
+  # Managed Staging PostgreSQL Database
+  staging-db:
+    image: postgres:16-alpine
+    container_name: mediflow-staging-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mediflow_staging
+      POSTGRES_PASSWORD: staging_secure_password_2026
+      POSTGRES_DB: mediflow_staging
+    volumes:
+      - staging_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediflow_staging -d mediflow_staging"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Staging Backend API & Socket.IO
+  staging-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mediflow-staging-api
+    restart: unless-stopped
+    depends_on:
+      staging-db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: staging
+      PORT: 5001
+      DATABASE_URL: "postgresql://mediflow_staging:staging_secure_password_2026@staging-db:5432/mediflow_staging?schema=public"
+      JWT_SECRET: "mediflow_staging_jwt_secret_key_testing_environment_2026"
+      JWT_EXPIRES_IN: "7d"
+      CLIENT_URL: "http://localhost:5173,http://localhost:8080,https://mediflow-staging.vercel.app"
+    ports:
+      - "5002:5001"
+
+volumes:
+  staging_pgdata:
+

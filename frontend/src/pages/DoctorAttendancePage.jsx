@@ -8,6 +8,13 @@ import {
   getDoctorMyAttendance,
 } from '../services/api';
 import { useSocket } from '../hooks/useSocket';
+import Button from '../components/ui/Button';
+import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import PageHeader from '../components/ui/PageHeader';
+import Modal from '../components/ui/Modal';
+import EmptyState from '../components/ui/EmptyState';
+import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 
 function DoctorAttendancePage() {
   const [attendanceData, setAttendanceData] = useState(null);
@@ -61,72 +68,53 @@ function DoctorAttendancePage() {
         } catch (e) {
           // ignore
         }
-        scannerRef.current = null;
       }
       return;
     }
 
     setCameraError('');
-    let qrScanner = null;
+    const qrScanner = new Html5QrcodeScanner(
+      'doctor-qr-scanner-container',
+      {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+      },
+      false
+    );
 
-    try {
-      qrScanner = new Html5QrcodeScanner(
-        'doctor-qr-scanner-container',
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-        },
-        false
-      );
-
-      qrScanner.render(
-        async (decodedText) => {
-          try {
-            qrScanner.pause();
-          } catch (e) {
-            // ignore
-          }
-          await handleCheckIn(decodedText);
-          setTimeout(() => {
-            try {
-              qrScanner.resume();
-            } catch (e) {
-              // ignore
-            }
-          }, 4000);
-        },
-        (errorFrame) => {
-          // Scan frame failure, normal while scanning
-        }
-      );
-
-      scannerRef.current = qrScanner;
-    } catch (err) {
-      setCameraError(
-        'Unable to initialize camera scanner. Please ensure camera permissions are granted or use manual token input below.'
-      );
-      setScannerActive(false);
-    }
-
-    return () => {
-      if (scannerRef.current) {
+    qrScanner.render(
+      async (decodedText) => {
         try {
-          scannerRef.current.clear();
+          qrScanner.pause();
         } catch (e) {
           // ignore
         }
-        scannerRef.current = null;
+        await handleCheckIn(decodedText);
+        setScannerActive(false);
+      },
+      (err) => {
+        // scan frame drop
+      }
+    );
+
+    scannerRef.current = qrScanner;
+
+    return () => {
+      try {
+        qrScanner.clear();
+      } catch (e) {
+        // ignore
       }
     };
   }, [scannerActive]);
 
-  // Execute Check-In
-  const handleCheckIn = async (tokenString) => {
-    if (!tokenString || !tokenString.trim()) {
+  // Execute Check-in (QR or Manual)
+  const handleCheckIn = async (token) => {
+    if (!token || !token.trim()) {
       setActionMessage({
         type: 'error',
-        text: 'Please scan or enter a valid hospital QR attendance token.',
+        text: 'Please provide a valid signed hospital QR token.',
       });
       return;
     }
@@ -134,33 +122,54 @@ function DoctorAttendancePage() {
     setActionLoading(true);
     setActionMessage({ type: '', text: '' });
 
+    // Request browser geolocation coordinates
+    let latitude = null;
+    let longitude = null;
     try {
-      const res = await doctorCheckInQR(tokenString.trim());
+      if ('geolocation' in navigator) {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 5000,
+            maximumAge: 60000,
+          });
+        });
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      }
+    } catch (geoErr) {
+      console.warn('Geolocation capture skipped or denied:', geoErr.message);
+    }
+
+    try {
+      const res = await doctorCheckInQR({
+        token: token.trim(),
+        latitude,
+        longitude,
+      });
+
       if (res && res.success) {
         setActionMessage({
           type: 'success',
-          text: res.message || 'Check-in confirmed! Live presence marked as PRESENT.',
+          text: `Check-in confirmed! Presence updated to ${res.currentPresence || 'PRESENT'}. Shift started.`,
         });
         setManualToken('');
         setScannerActive(false);
-        await fetchMyAttendance();
+        fetchMyAttendance();
       }
     } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        'Check-in failed. Please verify the QR code is authentic and unexpired.';
       setActionMessage({
         type: 'error',
-        text: msg,
+        text:
+          err.response?.data?.message ||
+          'Failed to check in. Token may be expired or geofence boundary exceeded.',
       });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Execute Check-Out
-  const handleCheckOut = async (e) => {
-    e?.preventDefault();
+  // Execute Check-out
+  const handleCheckOut = async () => {
     setActionLoading(true);
     setActionMessage({ type: '', text: '' });
 
@@ -169,50 +178,44 @@ function DoctorAttendancePage() {
       if (res && res.success) {
         setActionMessage({
           type: 'success',
-          text: res.message || 'Checked out successfully. Status marked as OFFLINE.',
+          text: `Check-out complete! Shift duration: ${res.durationMinutes || 0} min(s). Presence set to OFFLINE.`,
         });
         setShowCheckoutModal(false);
         setCheckoutNotes('');
-        await fetchMyAttendance();
+        fetchMyAttendance();
       }
     } catch (err) {
       setActionMessage({
         type: 'error',
-        text: err.response?.data?.message || 'Checkout failed. Please try again.',
+        text: err.response?.data?.message || 'Check-out failed.',
       });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Format minutes to readable hours and minutes
   const formatDuration = (mins) => {
-    if (mins === undefined || mins === null) return '0 mins';
-    if (mins === 0) return '< 1 min';
+    if (!mins && mins !== 0) return '0m';
     const h = Math.floor(mins / 60);
     const m = mins % 60;
-    if (h === 0) return `${m} min${m > 1 ? 's' : ''}`;
-    if (m === 0) return `${h} hr${h > 1 ? 's' : ''}`;
-    return `${h} hr${h > 1 ? 's' : ''} ${m} min${m > 1 ? 's' : ''}`;
+    if (h === 0) return `${m}m`;
+    return `${h}h ${m}m`;
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
         <Navbar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-3">
-            <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-sm font-semibold text-gray-600">Loading doctor attendance...</p>
-          </div>
-        </div>
+        <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1">
+          <LoadingSkeleton variant="card" count={3} />
+        </main>
       </div>
     );
   }
 
-  const isCheckedIn = attendanceData?.isCheckedIn;
-  const activeSession = attendanceData?.activeSession;
   const doctor = attendanceData?.doctor;
+  const isCheckedIn = attendanceData?.isCheckedIn || false;
+  const activeSession = attendanceData?.activeSession;
   const todaySessions = attendanceData?.todaySessions || [];
   const totalMinutesToday = attendanceData?.totalMinutesToday || 0;
 
@@ -220,42 +223,36 @@ function DoctorAttendancePage() {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 flex-1 space-y-6">
-        {/* Breadcrumb Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-200">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-              <Link to="/doctor/dashboard" className="hover:text-blue-600">
-                Doctor Dashboard
-              </Link>
-              <span>/</span>
-              <span className="text-gray-800 font-semibold">Attendance</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-              <span>🩺 Doctor QR Attendance Terminal</span>
-            </h1>
-            <p className="text-xs text-gray-500 mt-1">
-              Scan hospital attendance QR codes to verify OPD arrival and log clinical working sessions.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              to="/doctor/dashboard"
-              className="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl text-xs font-bold text-gray-700 shadow-xs transition"
+      <main className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-6">
+        <PageHeader
+          title="Clinician Attendance &amp; Shift Terminal"
+          subtitle="Cryptographic QR shift verification, geofenced presence synchronization, and working hours audit log."
+          badge={
+            <Badge
+              variant={isCheckedIn ? 'success' : 'neutral'}
+              size="sm"
+              dot
+              dotPulse={isCheckedIn}
             >
-              &larr; Back to Dashboard
+              {isCheckedIn ? 'Shift Active' : 'Offline'}
+            </Badge>
+          }
+          actions={
+            <Link to="/doctor/dashboard">
+              <Button variant="outline" size="sm" icon={<span>←</span>}>
+                Back to Dashboard
+              </Button>
             </Link>
-          </div>
-        </div>
+          }
+        />
 
         {/* Action Message Alert Banner */}
         {actionMessage.text && (
           <div
-            className={`p-4 rounded-2xl text-xs font-semibold flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-150 ${
+            className={`p-4 rounded-xl border text-xs sm:text-sm font-semibold flex items-center justify-between shadow-2xs ${
               actionMessage.type === 'success'
-                ? 'bg-emerald-50 border border-emerald-300 text-emerald-800'
-                : 'bg-red-50 border border-red-300 text-red-800'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                : 'bg-rose-50 border-rose-300 text-rose-800'
             }`}
           >
             <div className="flex items-center gap-2">
@@ -266,22 +263,22 @@ function DoctorAttendancePage() {
             </div>
             <button
               onClick={() => setActionMessage({ type: '', text: '' })}
-              className="font-bold text-sm ml-2 cursor-pointer opacity-70 hover:opacity-100"
+              className="font-bold text-base ml-2 cursor-pointer opacity-70 hover:opacity-100"
             >
-              ✕
+              &times;
             </button>
           </div>
         )}
 
         {/* Current Attendance Status Card */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xs p-6 overflow-hidden relative">
+        <Card className="p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div className="flex items-start gap-4">
               <div
-                className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm shrink-0 ${
+                className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-xs shrink-0 ${
                   isCheckedIn
                     ? 'bg-emerald-50 border border-emerald-200 text-emerald-600'
-                    : 'bg-gray-100 border border-gray-200 text-gray-400'
+                    : 'bg-slate-100 border border-slate-200 text-slate-400'
                 }`}
               >
                 {isCheckedIn ? '👨‍⚕️' : '🚪'}
@@ -289,51 +286,45 @@ function DoctorAttendancePage() {
 
               <div>
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider ${
-                      isCheckedIn
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : 'bg-gray-100 text-gray-600 border border-gray-300'
-                    }`}
+                  <Badge
+                    variant={isCheckedIn ? 'success' : 'neutral'}
+                    size="sm"
+                    dot
+                    dotPulse={isCheckedIn}
                   >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isCheckedIn ? 'bg-emerald-500 animate-ping' : 'bg-gray-400'
-                      }`}
-                    ></span>
                     {isCheckedIn
                       ? `CHECKED IN (${doctor?.currentPresence || 'PRESENT'})`
                       : 'OFFLINE (NOT CHECKED IN)'}
-                  </span>
-                  <span className="text-xs text-gray-400 font-medium">
+                  </Badge>
+                  <span className="text-xs text-slate-400 font-semibold">
                     Dr. {doctor?.name} ({doctor?.specialization})
                   </span>
                 </div>
 
                 {isCheckedIn && activeSession ? (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-sm font-bold text-gray-900">
-                      📍 Location: <span className="text-blue-700">{activeSession.location}</span>
+                  <div className="mt-2 space-y-1 text-xs">
+                    <p className="font-bold text-slate-900">
+                      📍 Location: <span className="text-[#0072CE]">{activeSession.location}</span>
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-slate-500">
                       Arrival Time:{' '}
-                      <strong className="text-gray-800">
+                      <strong className="text-slate-800 font-mono">
                         {new Date(activeSession.checkInTime).toLocaleTimeString([], {
                           hour: '2-digit',
                           minute: '2-digit',
                           second: '2-digit',
                         })}
                       </strong>{' '}
-                      &bull; Verification:{' '}
+                      &bull; Method:{' '}
                       <span className="font-semibold text-emerald-700">
                         {activeSession.checkInMethod === 'QR_SCAN' ? 'QR Scan Verified' : 'Manual Shift Entry'}
                       </span>
                     </p>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
                     You have not checked in to the hospital today. Please scan the QR code posted at the
-                    OPD reception or clinic desk to mark your clinical presence.
+                    OPD reception or clinic desk to mark your physical presence.
                   </p>
                 )}
               </div>
@@ -342,70 +333,74 @@ function DoctorAttendancePage() {
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
               {isCheckedIn ? (
-                <button
-                  type="button"
+                <Button
+                  variant="danger"
+                  size="md"
                   onClick={() => setShowCheckoutModal(true)}
                   disabled={actionLoading}
-                  className="w-full sm:w-auto px-5 py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  icon={<span>🚪</span>}
                 >
-                  <span>🚪 Complete Shift Check-Out</span>
-                </button>
+                  Complete Shift Check-Out
+                </Button>
               ) : (
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="md"
                   onClick={() => setScannerActive((prev) => !prev)}
-                  className="w-full sm:w-auto px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  icon={<span>📷</span>}
                 >
-                  <span>📷 {scannerActive ? 'Close Scanner' : 'Scan Hospital QR'}</span>
-                </button>
+                  {scannerActive ? 'Close Scanner' : 'Scan Hospital QR'}
+                </Button>
               )}
             </div>
           </div>
-        </div>
+        </Card>
 
-        {/* QR SCANNER SECTION (WHEN ACTIVE) */}
+        {/* QR Scanner Box */}
         {scannerActive && !isCheckedIn && (
-          <div className="bg-white rounded-3xl border-2 border-blue-500 shadow-md p-6 space-y-4 animate-in fade-in slide-in-from-top-3 duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <h2 className="text-sm font-black text-gray-900 flex items-center gap-2">
-                <span>📸 Camera QR Scanner</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  ● Camera Active
-                </span>
-              </h2>
-              <button
+          <Card className="p-6 border-2 border-blue-400 space-y-4 animate-in fade-in slide-in-from-top-3 duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <CardTitle>
+                <span>📸</span>
+                <span>Camera QR Scanner</span>
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setScannerActive(false)}
-                className="text-gray-400 hover:text-gray-600 text-xs font-bold p-1 cursor-pointer"
               >
                 ✕ Close
-              </button>
+              </Button>
             </div>
 
             {cameraError ? (
-              <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl text-xs text-amber-800">
+              <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-800">
                 ⚠️ {cameraError}
               </div>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 p-2">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2">
                 <div id="doctor-qr-scanner-container" className="w-full"></div>
               </div>
             )}
 
-            <p className="text-[11px] text-gray-400 text-center">
-              Align the hospital check-in QR code on the clinic desk within the frame to verify arrival.
+            <p className="text-[11px] text-slate-400 text-center">
+              Align the clinic check-in QR code on your desk within the viewfinder to verify arrival.
             </p>
-          </div>
+          </Card>
         )}
 
-        {/* MANUAL CODE FALLBACK SECTION (FOR CAMERA UNAVAILABILITY) */}
+        {/* Manual Code Fallback */}
         {!isCheckedIn && (
-          <div className="bg-white rounded-3xl border border-gray-200 shadow-xs p-6 space-y-4">
-            <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-              <span>⌨️ Manual Hospital Token Input (Fallback)</span>
-            </h2>
-            <p className="text-xs text-gray-500">
-              If camera access is blocked in your browser or lighting is low, paste the signed hospital token below.
-            </p>
+          <Card className="p-6 space-y-4">
+            <div>
+              <CardTitle>
+                <span>⌨️</span>
+                <span>Manual Token Input (Fallback)</span>
+              </CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">
+                If camera access is blocked in your browser, paste the signed hospital token directly.
+              </p>
+            </div>
 
             <form
               onSubmit={(e) => {
@@ -420,166 +415,151 @@ function DoctorAttendancePage() {
                 onChange={(e) => setManualToken(e.target.value)}
                 placeholder="Paste signed hospital QR token..."
                 disabled={actionLoading}
-                className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-[#0072CE]/30 focus:border-[#0072CE] outline-none"
               />
-              <button
+              <Button
                 type="submit"
-                disabled={actionLoading || !manualToken.trim()}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                variant="primary"
+                size="md"
+                disabled={!manualToken.trim()}
+                isLoading={actionLoading}
               >
-                {actionLoading ? 'Verifying...' : 'Submit Check-In &rarr;'}
-              </button>
+                Submit Check-In ➔
+              </Button>
             </form>
-          </div>
+          </Card>
         )}
 
-        {/* TODAY'S ATTENDANCE SESSIONS & SUMMARY */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xs p-6 space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-            <div>
-              <h2 className="text-sm font-black text-gray-900">Today&apos;s Attendance Summary</h2>
-              <p className="text-xs text-gray-500">Clinical shift logs recorded for today.</p>
+        {/* Today's Attendance Sessions Table */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Today's Shift Attendance Logs</CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">Verified clinical sessions recorded for today.</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Total Shift Duration
+                </span>
+                <strong className="text-base font-black text-[#0072CE]">
+                  {formatDuration(totalMinutesToday)}
+                </strong>
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
-                Total Worked Today
-              </span>
-              <strong className="text-base font-black text-blue-700">
-                {formatDuration(totalMinutesToday)}
-              </strong>
-            </div>
-          </div>
+          </CardHeader>
 
-          {todaySessions.length === 0 ? (
-            <div className="py-8 text-center text-gray-400 text-xs">
-              <span className="text-3xl block mb-2">📋</span>
-              No attendance sessions logged for today yet.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-gray-200 text-gray-500 uppercase tracking-wider text-[10px]">
-                    <th className="py-2.5">Location</th>
-                    <th className="py-2.5">Check-In</th>
-                    <th className="py-2.5">Check-Out</th>
-                    <th className="py-2.5">Duration</th>
-                    <th className="py-2.5">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {todaySessions.map((s) => (
-                    <tr key={s.id} className="hover:bg-gray-50/60 transition">
-                      <td className="py-3 font-semibold text-gray-900">{s.location}</td>
-                      <td className="py-3 font-mono text-gray-600">
-                        {new Date(s.checkInTime).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })}
-                      </td>
-                      <td className="py-3 font-mono text-gray-600">
-                        {s.checkOutTime
-                          ? new Date(s.checkOutTime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                            })
-                          : 'Ongoing'}
-                      </td>
-                      <td className="py-3 font-semibold text-blue-700">
-                        {s.durationMinutes !== undefined && s.durationMinutes !== null
-                          ? formatDuration(s.durationMinutes)
-                          : 'In Progress'}
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            s.status === 'CHECKED_IN'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : 'bg-gray-100 text-gray-700 border border-gray-300'
-                          }`}
-                        >
-                          {s.status === 'CHECKED_IN' ? '● ACTIVE' : '✓ COMPLETED'}
-                        </span>
-                      </td>
+          <CardContent className="p-0">
+            {todaySessions.length === 0 ? (
+              <div className="p-8">
+                <EmptyState
+                  icon="📋"
+                  title="No Shift Sessions Today"
+                  description="You have not clocked in for any clinical sessions today yet."
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
+                      <th className="py-3 px-4">Location</th>
+                      <th className="py-3 px-4">Check-In</th>
+                      <th className="py-3 px-4">Check-Out</th>
+                      <th className="py-3 px-4">Duration</th>
+                      <th className="py-3 px-4">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Security & Regulatory Notice */}
-        <p className="text-center text-xs text-gray-400">
-          🔒 Verification Notice: Scanning hospital QR codes authenticates a verified check-in interaction and
-          initializes clinical availability tracking. Continuous presence is maintained in accordance with hospital OPD policy.
-        </p>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {todaySessions.map((s) => (
+                      <tr key={s.id} className="hover:bg-slate-50 transition">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">{s.location}</td>
+                        <td className="py-3.5 px-4 font-mono text-slate-600">
+                          {new Date(s.checkInTime).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-600">
+                          {s.checkOutTime
+                            ? new Date(s.checkOutTime).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                              })
+                            : 'Ongoing'}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-[#0072CE]">
+                          {s.durationMinutes !== undefined && s.durationMinutes !== null
+                            ? formatDuration(s.durationMinutes)
+                            : 'In Progress'}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <Badge
+                            variant={s.status === 'CHECKED_IN' ? 'success' : 'neutral'}
+                            size="xs"
+                            dotPulse={s.status === 'CHECKED_IN'}
+                          >
+                            {s.status === 'CHECKED_IN' ? 'ACTIVE' : 'COMPLETED'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
 
-      {/* CHECKOUT CONFIRMATION MODAL */}
-      {showCheckoutModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b">
-              <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-                <span>🚪 Confirm Shift Check-Out</span>
-              </h3>
-              <button
-                onClick={() => setShowCheckoutModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-sm font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Checkout Confirmation Modal */}
+      <Modal
+        isOpen={showCheckoutModal}
+        onClose={() => setShowCheckoutModal(false)}
+        title="Confirm Shift Check-Out"
+        description="Marking your shift complete will transition your presence to OFFLINE."
+      >
+        <div className="space-y-4 text-xs">
+          <div>
+            <label className="block font-bold text-slate-700 uppercase mb-1.5">
+              Shift Handoff / Notes (Optional)
+            </label>
+            <textarea
+              rows="3"
+              value={checkoutNotes}
+              onChange={(e) => setCheckoutNotes(e.target.value)}
+              placeholder="e.g. Completed 12 OPD consultations, handed ward rounds to duty registrar..."
+              className="w-full text-xs border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#0072CE]/30"
+            ></textarea>
+          </div>
 
-            <p className="text-xs text-gray-600">
-              Are you sure you want to check out from{' '}
-              <strong>{activeSession?.location || 'Hospital OPD'}</strong>? Your live presence will be
-              transitioned to <strong>OFFLINE</strong> and shift duration recorded.
-            </p>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Handover / Checkout Notes (Optional)
-              </label>
-              <textarea
-                rows="2"
-                value={checkoutNotes}
-                onChange={(e) => setCheckoutNotes(e.target.value)}
-                placeholder="e.g., Handed over ward coverage to Dr. Sharma..."
-                className="w-full text-xs border border-gray-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
-              ></textarea>
-            </div>
-
-            <div className="flex gap-2 pt-2 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setShowCheckoutModal(false)}
-                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={actionLoading}
-                onClick={handleCheckOut}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer disabled:opacity-50"
-              >
-                {actionLoading ? 'Checking out...' : 'Confirm Check-Out'}
-              </button>
-            </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCheckoutModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleCheckOut}
+              isLoading={actionLoading}
+            >
+              Confirm Check-Out
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
 
-      <footer className="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-400">
-        MediFlow AI &bull; Doctor Clinical Attendance &bull; Security &amp; Audit Logged
+      <footer className="text-center py-5 text-xs text-slate-400 bg-white border-t border-slate-200">
+        MediFlow AI 2.0 &bull; Clinician Presence &amp; Shift Terminal &bull; Smart Outpatient Network
       </footer>
     </div>
   );
 }
 
 export default DoctorAttendancePage;
-

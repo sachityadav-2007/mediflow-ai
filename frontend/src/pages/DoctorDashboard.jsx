@@ -15,6 +15,15 @@ import {
   updateConsultationState,
 } from '../services/api';
 import { useSocket } from '../hooks/useSocket';
+import Button from '../components/ui/Button';
+import Card, { CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import StatCard from '../components/ui/StatCard';
+import PageHeader from '../components/ui/PageHeader';
+import Modal from '../components/ui/Modal';
+import EmptyState from '../components/ui/EmptyState';
+import ErrorState from '../components/ui/ErrorState';
+import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 
 const DAYS_OF_WEEK = [
   'MONDAY',
@@ -27,7 +36,7 @@ const DAYS_OF_WEEK = [
 ];
 
 function DoctorDashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [doctorData, setDoctorData] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [updatingApptId, setUpdatingApptId] = useState(null);
@@ -39,7 +48,6 @@ function DoctorDashboard() {
     startTime: '10:00',
     endTime: '10:30',
   });
-  const [allocationResult, setAllocationResult] = useState(null);
   const [presenceLogs, setPresenceLogs] = useState([]);
   const [doctorForecast, setDoctorForecast] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -147,7 +155,7 @@ function DoctorDashboard() {
     loadDashboardData();
   }, []);
 
-  // Real-time Socket.IO listeners: refresh doctor dashboard when appointments or waitlist change
+  // Real-time Socket.IO listeners
   useSocket('appointment_created', (data) => {
     if (!data?.doctorId || data.doctorId === doctorData?.id) {
       loadDashboardData();
@@ -245,7 +253,7 @@ function DoctorDashboard() {
     }
   };
 
-  // Phase 11: Quick Consultation Lifecycle Action (START, COMPLETE, NO_SHOW)
+  // Consultation Lifecycle Action (START, COMPLETE, NO_SHOW)
   const handleConsultationAction = async (apptId, action) => {
     setUpdatingApptId(apptId);
     setActionMessage({ type: '', text: '' });
@@ -284,7 +292,6 @@ function DoctorDashboard() {
     if (!doctorData?.id) return;
     setIsAllocating(true);
     setActionMessage({ type: '', text: '' });
-    setAllocationResult(null);
 
     try {
       const res = await triggerSmartAllocation({
@@ -300,7 +307,6 @@ function DoctorDashboard() {
             type: 'success',
             text: `Slot successfully allocated to highest-priority patient: ${res.selectedPatient.name} (Priority Score: ${res.priorityScore} pts)!`,
           });
-          setAllocationResult(res);
           setShowAllocateModal(false);
           loadDashboardData();
         } else {
@@ -346,8 +352,6 @@ function DoctorDashboard() {
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     setActionMessage({ type: '', text: '' });
-
-    // Filter to active schedules or save all
     const activeSchedules = schedules.filter((s) => s.isAvailable);
 
     try {
@@ -372,118 +376,178 @@ function DoctorDashboard() {
     }
   };
 
-  const getPresenceBadgeColor = (status) => {
-    switch (status) {
-      case 'PRESENT':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'BUSY':
-        return 'bg-amber-100 text-amber-800 border-amber-300';
-      case 'AWAY':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-300';
-    }
-  };
+  const checkedInCount = appointments.filter((a) => a.status === 'CHECKED_IN').length;
+  const inProgressCount = appointments.filter((a) => a.status === 'IN_PROGRESS').length;
+  const completedCount = appointments.filter((a) => a.status === 'COMPLETED').length;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
         <Navbar />
-        <div className="text-center py-24 space-y-3">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-gray-500 font-medium">Loading Doctor Portal...</p>
-        </div>
+        <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1">
+          <LoadingSkeleton variant="card" count={4} />
+          <div className="mt-8">
+            <LoadingSkeleton variant="table" rows={6} cols={5} />
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-6">
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-6">
         {/* Banner Alert Messages */}
         {actionMessage.text && (
           <div
-            className={`p-4 rounded-xl border text-sm flex items-center justify-between ${
+            className={`p-4 rounded-xl border text-sm flex items-center justify-between shadow-2xs ${
               actionMessage.type === 'success'
-                ? 'bg-green-50 border-green-200 text-green-800'
-                : 'bg-red-50 border-red-200 text-red-800'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : actionMessage.type === 'warning'
+                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                : 'bg-rose-50 border-rose-200 text-rose-800'
             }`}
           >
-            <span>{actionMessage.text}</span>
+            <span className="font-semibold">{actionMessage.text}</span>
             <button
               onClick={() => setActionMessage({ type: '', text: '' })}
-              className="text-xs font-bold text-gray-400 hover:text-gray-700"
+              className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer"
             >
-              ✕
+              &times;
             </button>
           </div>
         )}
 
-        {/* Doctor Header Banner */}
-        <div className="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-2xl p-6 sm:p-8 text-white shadow-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="px-2.5 py-0.5 text-xs font-bold bg-blue-500/30 border border-blue-300/30 rounded-full">
-                  🩺 Doctor Control Panel
-                </span>
-                <span
-                  className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${getPresenceBadgeColor(
-                    currentStatus
-                  )}`}
+        {/* Doctor Header & Actions */}
+        <PageHeader
+          title={`Dr. ${doctorData?.user?.name || user?.name || 'Doctor'}`}
+          subtitle={`${doctorData?.specialization || 'Specialist'} • ${
+            doctorData?.department || 'Department'
+          } • Room ${doctorData?.roomNumber || 'OPD Cabin'} • Experience: ${
+            doctorData?.experience || 0
+          } Years`}
+          badge={
+            <Badge
+              variant={
+                currentStatus === 'PRESENT' || currentStatus === 'AVAILABLE'
+                  ? 'success'
+                  : currentStatus === 'IN_CONSULTATION' || currentStatus === 'BUSY'
+                  ? 'warning'
+                  : currentStatus === 'AWAY'
+                  ? 'indigo'
+                  : 'neutral'
+              }
+              size="sm"
+              dot
+              dotPulse={currentStatus === 'IN_CONSULTATION'}
+            >
+              {currentStatus}
+            </Badge>
+          }
+          actions={
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link to="/doctor/attendance">
+                <Button variant="success" size="sm" icon={<span>📷</span>}>
+                  My Attendance &amp; Shift
+                </Button>
+              </Link>
+              {doctorData?.id && (
+                <a
+                  href={`/queue/${doctorData.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  ● {currentStatus}
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold">
-                {doctorData?.user?.name || user?.name}
-              </h1>
-              <p className="text-blue-100 text-sm mt-1">
-                {doctorData?.specialization} &bull; {doctorData?.department} &bull; Room {doctorData?.roomNumber || 'N/A'}
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <button
+                  <Button variant="outline" size="sm" icon={<span>📺</span>}>
+                    Live Queue Board ↗
+                  </Button>
+                </a>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => setIsEditingProfile(true)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg border border-white/20 transition cursor-pointer"
+                icon={<span>✏️</span>}
               >
-                ✏️ Edit Profile
-              </button>
-              <button
-                onClick={logout}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg border border-white/20 transition cursor-pointer"
-              >
-                Sign Out
-              </button>
+                Edit Profile
+              </Button>
             </div>
-          </div>
+          }
+        />
+
+        {/* Clinical Operations KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <StatCard
+            title="Total Scheduled"
+            value={appointments.length}
+            subtitle="Today's registered consultations"
+            icon="📅"
+            iconBg="bg-blue-50 text-[#0072CE]"
+          />
+
+          <StatCard
+            title="Checked In (At Clinic)"
+            value={checkedInCount}
+            subtitle="Patients waiting in waiting room"
+            icon="🚶"
+            iconBg="bg-amber-50 text-amber-700"
+            badge={
+              checkedInCount > 0 ? (
+                <Badge variant="warning" size="xs">
+                  Ready
+                </Badge>
+              ) : null
+            }
+          />
+
+          <StatCard
+            title="In Consultation"
+            value={inProgressCount}
+            subtitle="Currently inside doctor cabin"
+            icon="🩺"
+            iconBg="bg-purple-50 text-purple-700"
+            badge={
+              inProgressCount > 0 ? (
+                <Badge variant="purple" size="xs" dot dotPulse>
+                  Active
+                </Badge>
+              ) : null
+            }
+          />
+
+          <StatCard
+            title="Completed Visits"
+            value={completedCount}
+            subtitle="Concluded consultations today"
+            icon="✅"
+            iconBg="bg-emerald-50 text-emerald-700"
+          />
         </div>
 
         {/* Live Presence Quick Controls */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+        <Card className="p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-base font-bold text-gray-900">
-                Clinic Presence Controller
-              </h2>
-              <p className="text-xs text-gray-500">
-                Update your live clinic availability for patients and receptionists in real time.
+              <CardTitle>Clinic Presence State Controller</CardTitle>
+              <p className="text-xs text-slate-500 mt-1">
+                Synchronize your live availability across the hospital directory, patient booking engine, and reception desk.
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Link
-                to="/doctor/attendance"
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Live Status:</span>
+              <Badge
+                variant={
+                  currentStatus === 'PRESENT' || currentStatus === 'AVAILABLE'
+                    ? 'success'
+                    : currentStatus === 'IN_CONSULTATION' || currentStatus === 'BUSY'
+                    ? 'warning'
+                    : 'neutral'
+                }
+                size="sm"
               >
-                <span>📷 QR Attendance</span>
-                <span className="text-[10px]">&rarr;</span>
-              </Link>
-              <span className="text-xs text-gray-400">
-                Current: <strong className="text-gray-800">{currentStatus}</strong>
-              </span>
+                {currentStatus}
+              </Badge>
             </div>
           </div>
 
@@ -492,36 +556,36 @@ function DoctorDashboard() {
               type="button"
               disabled={updatingPresence}
               onClick={() => handlePresenceChange('PRESENT')}
-              className={`py-3 px-4 rounded-xl border text-sm font-semibold transition cursor-pointer ${
-                currentStatus === 'PRESENT'
-                  ? 'bg-green-600 text-white border-green-600 shadow-sm'
-                  : 'bg-white hover:bg-green-50 text-green-700 border-green-200'
+              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
+                currentStatus === 'PRESENT' || currentStatus === 'AVAILABLE'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200'
               }`}
             >
-              🟢 PRESENT
+              🟢 AVAILABLE
             </button>
 
             <button
               type="button"
               disabled={updatingPresence}
               onClick={() => handlePresenceChange('BUSY')}
-              className={`py-3 px-4 rounded-xl border text-sm font-semibold transition cursor-pointer ${
-                currentStatus === 'BUSY'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
+                currentStatus === 'BUSY' || currentStatus === 'IN_CONSULTATION'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                   : 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200'
               }`}
             >
-              🟡 BUSY (In Consultation)
+              🟡 IN CONSULTATION
             </button>
 
             <button
               type="button"
               disabled={updatingPresence}
               onClick={() => handlePresenceChange('AWAY')}
-              className={`py-3 px-4 rounded-xl border text-sm font-semibold transition cursor-pointer ${
+              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
                 currentStatus === 'AWAY'
-                  ? 'bg-yellow-500 text-white border-yellow-500 shadow-sm'
-                  : 'bg-white hover:bg-yellow-50 text-yellow-700 border-yellow-200'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-200'
               }`}
             >
               ⏸️ AWAY (Break)
@@ -531,507 +595,404 @@ function DoctorDashboard() {
               type="button"
               disabled={updatingPresence}
               onClick={() => handlePresenceChange('OFFLINE')}
-              className={`py-3 px-4 rounded-xl border text-sm font-semibold transition cursor-pointer ${
+              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
                 currentStatus === 'OFFLINE'
-                  ? 'bg-gray-700 text-white border-gray-700 shadow-sm'
-                  : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-200'
+                  ? 'bg-slate-700 text-white border-slate-700 shadow-xs'
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
               }`}
             >
-              ⚪ OFFLINE (Left Clinic)
+              ⚪ OFFLINE (Shift End)
             </button>
           </div>
-        </div>
+        </Card>
 
         {/* Phase 10: AI Predictive Demand & Schedule Insights */}
         {doctorForecast && (
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🧠</span>
-                  <h2 className="text-base font-bold text-gray-900">
-                    AI Demand Forecasting &amp; Schedule Insights
-                  </h2>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
-                    Phase 10 AI
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-indigo-50/50 via-purple-50/30 to-blue-50/30">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🧠</span>
+                    <CardTitle>AI Demand Forecasting &amp; Workload Insights</CardTitle>
+                    <Badge variant="indigo" size="xs">
+                      Advisory ML
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Predictive outpatient workload modeling and historical attendance metrics based on clinical records.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-xs">
+                  <span className="text-slate-600">
+                    Expected Attendance: <strong className="text-emerald-700 font-bold">{Math.round((doctorForecast.todayAvailability?.probability || 0.9) * 100)}%</strong>
+                  </span>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-slate-600">
+                    Pace: <strong className="text-indigo-900 font-bold">{doctorData?.consultationDuration || 20} min/visit</strong>
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Predictive clinical load modeling and historical attendance reliability based on your consultation records.
-                </p>
               </div>
+            </CardHeader>
 
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span className="text-gray-500">
-                  Duty Attendance: <strong className="text-emerald-700 font-bold">{Math.round((doctorForecast.todayAvailability?.probability || 0.9) * 100)}%</strong>
-                </span>
-                <span className="text-gray-300">|</span>
-                <span className="text-gray-500">
-                  Consultation Pace: <strong className="text-purple-700 font-bold">{doctorData?.consultationDuration || 20}m / patient (Advisory ML)</strong>
-                </span>
-              </div>
-            </div>
-
-            {/* Projections Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* 7-Day Forecast */}
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200/70 space-y-2.5">
-                <div className="flex items-center justify-between text-xs font-bold text-gray-700">
-                  <span>📅 Next 7 Days Projected Patient Visits</span>
-                  <span className="text-purple-700">
-                    Total: {doctorForecast.sevenDayForecast?.expectedTotalVolume || 0}
-                  </span>
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  {doctorForecast.sevenDayForecast?.dailyForecast?.map((day, idx) => (
-                    <div
-                      key={idx}
-                      className="p-1.5 rounded-lg bg-white border border-gray-200 text-[10px]"
-                    >
-                      <div className="font-bold text-gray-700">{day.dayOfWeek.slice(0, 3)}</div>
-                      <div className="text-xs font-black text-purple-700 mt-1">
-                        {day.expectedDemand}
-                      </div>
-                      <div className="text-[9px] text-gray-400">vis</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Peak Hours & Availability */}
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200/70 space-y-2.5 text-xs">
-                <div className="font-bold text-gray-700">⏰ High-Demand Consultation Slots</div>
-                <p className="text-[11px] text-gray-500">
-                  Based on historical booking patterns, your peak clinic rush hours are:
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {doctorForecast.slotDemandPatterns?.peakSlots?.map((slot, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-1 bg-red-50 text-red-800 border border-red-200 rounded-lg font-bold text-xs"
-                    >
-                      🔥 {slot}
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>📅 Next 7 Days Projected Patient Volume</span>
+                    <span className="text-[#0072CE]">
+                      Total: {doctorForecast.sevenDayForecast?.expectedTotalVolume || 0} visits
                     </span>
-                  ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1.5 text-center">
+                    {doctorForecast.sevenDayForecast?.dailyForecast?.map((day, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 rounded-xl bg-white border border-slate-200 text-[11px]"
+                      >
+                        <div className="font-bold text-slate-600">{day.dayOfWeek.slice(0, 3)}</div>
+                        <div className="text-xs font-black text-indigo-700 mt-1">
+                          {day.expectedDemand}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="text-[11px] text-gray-400 italic pt-1">
-                  Tip: Allocate extra buffer time around peak slots to minimize patient waiting queues.
-                </p>
+
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+                  <div className="font-bold text-slate-700">⏰ High-Demand Consultation Slots</div>
+                  <p className="text-[11px] text-slate-500">
+                    Identified rush slots with highest probability of clinical queue buildup:
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {doctorForecast.slotDemandPatterns?.peakSlots?.map((slot, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 bg-rose-50 text-rose-800 border border-rose-200 rounded-lg font-bold text-xs"
+                      >
+                        🔥 {slot}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500 italic pt-1">
+                    Tip: Allow slight buffer time following peak slots to maintain zero waiting room delays.
+                  </p>
+                </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Today's Appointments Section */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base font-bold text-gray-900">
-                Scheduled Appointments
-              </h2>
-              <p className="text-xs text-gray-500">
-                Patients scheduled for consultation with live clinical status controls.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {doctorData?.id && (
-                <a
-                  href={`/queue/${doctorData.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl border border-indigo-200 transition flex items-center gap-1.5"
-                >
-                  <span>📺 Live OPD Queue Board</span>
-                  <span className="text-[10px]">↗</span>
-                </a>
-              )}
-              <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full border border-blue-200">
-                Total: {appointments.length}
-              </span>
-            </div>
-          </div>
-
-          {appointments.length === 0 ? (
-            <div className="py-8 text-center text-gray-400 text-xs">
-              <span className="text-2xl block mb-1">📅</span>
-              No appointments scheduled.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
-                    <th className="pb-2">Token / ID</th>
-                    <th className="pb-2">Patient</th>
-                    <th className="pb-2">Slot Time</th>
-                    <th className="pb-2">Priority</th>
-                    <th className="pb-2">Current Status</th>
-                    <th className="pb-2">Reason</th>
-                    <th className="pb-2">Update Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {appointments.map((apt) => (
-                    <tr key={apt.id} className="hover:bg-gray-50/60 transition">
-                      <td className="py-3 font-mono font-bold text-blue-600">
-                        {apt.appointmentNumber}
-                      </td>
-                      <td className="py-3">
-                        <p className="font-semibold text-gray-800">
-                          {apt.patient?.user?.name || 'Unknown Patient'}
-                        </p>
-                        <p className="text-[11px] text-gray-400">
-                          {apt.patient?.user?.phone || 'No phone'}
-                        </p>
-                      </td>
-                      <td className="py-3 font-mono text-gray-700">
-                        {apt.slot?.startTime} &ndash; {apt.slot?.endTime}
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            apt.priority === 'EMERGENCY'
-                              ? 'bg-red-100 text-red-800 border border-red-200'
-                              : apt.priority === 'HIGH'
-                              ? 'bg-orange-100 text-orange-800 border border-orange-200'
-                              : apt.priority === 'MEDIUM'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
-                          }`}
-                        >
-                          {apt.priority}
-                        </span>
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                            apt.status === 'COMPLETED'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : apt.status === 'IN_PROGRESS'
-                              ? 'bg-purple-100 text-purple-800 border border-purple-200 animate-pulse'
-                              : apt.status === 'CHECKED_IN'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                              : apt.status === 'CONFIRMED'
-                              ? 'bg-green-100 text-green-800 border border-green-200'
-                              : apt.status === 'CANCELLED'
-                              ? 'bg-red-100 text-red-700 border border-red-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
-                          }`}
-                        >
-                          ● {apt.status}
-                        </span>
-                      </td>
-                      <td className="py-3 text-gray-600 max-w-xs truncate" title={apt.reason}>
-                        {apt.reason || 'General checkup'}
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-1.5">
-                          <select
-                            value={apt.status}
-                            disabled={updatingApptId === apt.id}
-                            onChange={(e) => handleStatusChange(apt.id, e.target.value)}
-                            className="px-2 py-1 text-[11px] font-medium rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-                          >
-                            <option value="SCHEDULED">SCHEDULED</option>
-                            <option value="CONFIRMED">CONFIRMED</option>
-                            <option value="CHECKED_IN">CHECKED_IN</option>
-                            <option value="IN_PROGRESS">IN_PROGRESS</option>
-                            <option value="COMPLETED">COMPLETED</option>
-                            <option value="CANCELLED">CANCELLED</option>
-                            <option value="NO_SHOW">NO_SHOW</option>
-                          </select>
-
-                          {/* Quick Consultation Lifecycle Buttons */}
-                          {apt.status === 'CHECKED_IN' && (
-                            <button
-                              type="button"
-                              onClick={() => handleConsultationAction(apt.id, 'START')}
-                              disabled={updatingApptId === apt.id}
-                              className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] rounded-lg shadow-2xs transition shrink-0 cursor-pointer"
-                              title="Call patient into cabin and start consultation"
-                            >
-                              ▶️ Call In
-                            </button>
-                          )}
-                          {apt.status === 'IN_PROGRESS' && (
-                            <button
-                              type="button"
-                              onClick={() => handleConsultationAction(apt.id, 'COMPLETE')}
-                              disabled={updatingApptId === apt.id}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg shadow-2xs transition shrink-0 cursor-pointer"
-                              title="Complete consultation and free cabin"
-                            >
-                              ✅ Complete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Smart Waitlist Queue Section (Phase 6) */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">🧠</span>
-                <h2 className="text-base font-bold text-gray-900">
-                  Smart Waitlist Queue
-                </h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase">
-                  Rule-Based AI Allocation
-                </span>
+        {/* Scheduled Appointments Table with Lifecycle Actions */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle>
+                  <span>📅</span>
+                  <span>Scheduled Outpatient Consultations</span>
+                </CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Real-time patient queue with consultation lifecycle state triggers (Call In &amp; Complete).
+                </p>
               </div>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Patients ranked deterministically by Medical Severity (10-40), Urgency (5-20), and Waiting Time (+1 pt/30m).
-              </p>
+              <Badge variant="primary" size="sm">
+                Total Booked: {appointments.length}
+              </Badge>
             </div>
+          </CardHeader>
 
-            <button
-              type="button"
-              onClick={() => setShowAllocateModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-            >
-              <span>⚡</span>
-              <span>Demonstrate Smart Allocation</span>
-            </button>
-          </div>
-
-          {waitlistEntries.length === 0 ? (
-            <div className="py-8 text-center text-gray-400 text-xs">
-              <span className="text-2xl block mb-1">📋</span>
-              No patients currently waiting in this doctor's waitlist queue.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-gray-100 text-gray-400 font-semibold uppercase tracking-wider">
-                    <th className="pb-2">Rank</th>
-                    <th className="pb-2">Patient</th>
-                    <th className="pb-2">Priority Score</th>
-                    <th className="pb-2">Medical Severity</th>
-                    <th className="pb-2">Clinical Urgency</th>
-                    <th className="pb-2">Joined Time</th>
-                    <th className="pb-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {waitlistEntries.map((entry, idx) => {
-                    const score = entry.currentScore || entry.priorityScore || 0;
-                    const isPending = entry.status === 'PENDING';
-
-                    return (
-                      <tr
-                        key={entry.id}
-                        className={`hover:bg-gray-50/60 transition ${
-                          entry.status === 'ALLOCATED' ? 'bg-green-50/30' : ''
-                        }`}
-                      >
-                        <td className="py-3 font-mono font-bold text-gray-400">
-                          {isPending ? `#${idx + 1}` : '—'}
+          <CardContent className="p-0">
+            {appointments.length === 0 ? (
+              <div className="p-8">
+                <EmptyState
+                  icon="📅"
+                  title="No Appointments Scheduled"
+                  description="There are no patients booked under your care for today's session."
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4">Token / ID</th>
+                      <th className="py-3 px-4">Patient Details</th>
+                      <th className="py-3 px-4">Slot Time</th>
+                      <th className="py-3 px-4">Priority</th>
+                      <th className="py-3 px-4">Current Status</th>
+                      <th className="py-3 px-4">Clinical Reason</th>
+                      <th className="py-3 px-4">Consultation Lifecycle</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {appointments.map((apt) => (
+                      <tr key={apt.id} className="hover:bg-slate-50/80 transition">
+                        <td className="py-3.5 px-4 font-mono font-bold text-[#0072CE]">
+                          {apt.appointmentNumber}
                         </td>
-                        <td className="py-3">
-                          <p className="font-semibold text-gray-800">
-                            {entry.patient?.user?.name || 'Waitlisted Patient'}
+                        <td className="py-3.5 px-4">
+                          <p className="font-bold text-slate-900">
+                            {apt.patient?.user?.name || 'Registered Patient'}
                           </p>
-                          <p className="text-[11px] text-gray-400">
-                            {entry.patient?.user?.phone || 'No phone'}
+                          <p className="text-[11px] text-slate-400">
+                            {apt.patient?.user?.phone || 'No phone'}
                           </p>
                         </td>
-                        <td className="py-3">
-                          <span className="font-mono font-bold text-indigo-700 text-sm bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200">
-                            {score} pts
-                          </span>
+                        <td className="py-3.5 px-4 font-mono text-slate-700 font-semibold">
+                          {apt.slot?.startTime} &ndash; {apt.slot?.endTime}
                         </td>
-                        <td className="py-3">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              entry.priority === 'EMERGENCY' || entry.priority === 'CRITICAL'
-                                ? 'bg-red-100 text-red-800'
-                                : entry.priority === 'HIGH'
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
+                        <td className="py-3.5 px-4">
+                          <Badge
+                            variant={
+                              apt.priority === 'EMERGENCY'
+                                ? 'danger'
+                                : apt.priority === 'HIGH'
+                                ? 'warning'
+                                : 'neutral'
+                            }
+                            size="xs"
                           >
-                            {entry.priority}
-                          </span>
+                            {apt.priority}
+                          </Badge>
                         </td>
-                        <td className="py-3">
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              entry.urgency === 'EMERGENCY'
-                                ? 'bg-red-100 text-red-800'
-                                : entry.urgency === 'HIGH'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}
+                        <td className="py-3.5 px-4">
+                          <Badge
+                            variant={
+                              apt.status === 'COMPLETED'
+                                ? 'success'
+                                : apt.status === 'IN_PROGRESS'
+                                ? 'purple'
+                                : apt.status === 'CHECKED_IN'
+                                ? 'warning'
+                                : 'neutral'
+                            }
+                            size="xs"
+                            dotPulse={apt.status === 'IN_PROGRESS'}
                           >
-                            {entry.urgency}
-                          </span>
+                            {apt.status}
+                          </Badge>
                         </td>
-                        <td className="py-3 text-[11px] text-gray-500">
-                          {new Date(entry.createdAt).toLocaleDateString([], {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                        <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate" title={apt.reason}>
+                          {apt.reason || 'General medical consultation'}
                         </td>
-                        <td className="py-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              entry.status === 'ALLOCATED'
-                                ? 'bg-green-100 text-green-800 border border-green-200'
-                                : entry.status === 'PENDING'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : 'bg-gray-100 text-gray-600'
-                            }`}
-                          >
-                            ● {entry.status}
-                          </span>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={apt.status}
+                              disabled={updatingApptId === apt.id}
+                              onChange={(e) => handleStatusChange(apt.id, e.target.value)}
+                              className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-[#0072CE]/40 outline-none cursor-pointer"
+                            >
+                              <option value="SCHEDULED">SCHEDULED</option>
+                              <option value="CONFIRMED">CONFIRMED</option>
+                              <option value="CHECKED_IN">CHECKED_IN</option>
+                              <option value="IN_PROGRESS">IN_PROGRESS</option>
+                              <option value="COMPLETED">COMPLETED</option>
+                              <option value="CANCELLED">CANCELLED</option>
+                              <option value="NO_SHOW">NO_SHOW</option>
+                            </select>
+
+                            {/* Quick Consultation Lifecycle Buttons */}
+                            {apt.status === 'CHECKED_IN' && (
+                              <Button
+                                variant="purple"
+                                size="sm"
+                                onClick={() => handleConsultationAction(apt.id, 'START')}
+                                disabled={updatingApptId === apt.id}
+                                title="Call patient into cabin and start consultation"
+                              >
+                                ▶️ Call In
+                              </Button>
+                            )}
+                            {apt.status === 'IN_PROGRESS' && (
+                              <Button
+                                variant="success"
+                                size="sm"
+                                onClick={() => handleConsultationAction(apt.id, 'COMPLETE')}
+                                disabled={updatingApptId === apt.id}
+                                title="Complete consultation and free cabin"
+                              >
+                                ✅ Complete
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Smart Allocation Modal (Phase 6 Demonstration) */}
-        {showAllocateModal && (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-100 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b">
+        {/* Smart Waitlist Queue Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">⚡</span>
-                  <h3 className="text-base font-bold text-gray-900">
-                    Smart Allocation Trigger
-                  </h3>
+                  <span className="text-xl">⏳</span>
+                  <CardTitle>Smart Standby Waitlist Queue</CardTitle>
+                  <Badge variant="indigo" size="xs">
+                    Rule-Based Priority Triage
+                  </Badge>
                 </div>
-                <button
-                  onClick={() => setShowAllocateModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-sm font-bold"
-                >
-                  ✕
-                </button>
+                <p className="text-xs text-slate-500 mt-1">
+                  Patients ranked deterministically by Medical Urgency, Standby Duration, and Clinical Priority.
+                </p>
               </div>
 
-              <p className="text-xs text-gray-500">
-                Specify an available time slot. The smart allocation engine will automatically
-                evaluate the waitlist, pick the patient with the highest clinical score, create
-                the appointment, and mark their waitlist entry as ALLOCATED.
-              </p>
-
-              <form onSubmit={handleRunAllocation} className="space-y-3 text-xs">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">
-                    Slot Date
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={allocationForm.appointmentDate}
-                    onChange={(e) =>
-                      setAllocationForm({
-                        ...allocationForm,
-                        appointmentDate: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">
-                      Start Time
-                    </label>
-                    <input
-                      type="time"
-                      required
-                      value={allocationForm.startTime}
-                      onChange={(e) =>
-                        setAllocationForm({
-                          ...allocationForm,
-                          startTime: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-gray-700 mb-1">
-                      End Time
-                    </label>
-                    <input
-                      type="time"
-                      required
-                      value={allocationForm.endTime}
-                      onChange={(e) =>
-                        setAllocationForm({
-                          ...allocationForm,
-                          endTime: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-3 flex justify-end gap-2 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setShowAllocateModal(false)}
-                    className="px-4 py-2 border rounded-lg font-medium text-gray-600 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isAllocating}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50"
-                  >
-                    {isAllocating ? 'Allocating...' : 'Execute Allocation'}
-                  </button>
-                </div>
-              </form>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowAllocateModal(true)}
+                icon={<span>⚡</span>}
+              >
+                Demonstrate Smart Allocation
+              </Button>
             </div>
-          </div>
-        )}
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {waitlistEntries.length === 0 ? (
+              <div className="p-8">
+                <EmptyState
+                  icon="⏳"
+                  title="No Waitlisted Patients"
+                  description="There are currently no standby patients waiting for open slots under your care."
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4">Rank</th>
+                      <th className="py-3 px-4">Patient</th>
+                      <th className="py-3 px-4">Priority Score</th>
+                      <th className="py-3 px-4">Severity Tier</th>
+                      <th className="py-3 px-4">Clinical Urgency</th>
+                      <th className="py-3 px-4">Joined Timestamp</th>
+                      <th className="py-3 px-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {waitlistEntries.map((entry, idx) => {
+                      const score = entry.currentScore || entry.priorityScore || 0;
+                      const isPending = entry.status === 'PENDING';
+
+                      return (
+                        <tr
+                          key={entry.id}
+                          className={`hover:bg-slate-50 transition ${
+                            entry.status === 'ALLOCATED' ? 'bg-emerald-50/30' : ''
+                          }`}
+                        >
+                          <td className="py-3.5 px-4 font-mono font-bold text-slate-400">
+                            {isPending ? `#${idx + 1}` : '—'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <p className="font-bold text-slate-900">
+                              {entry.patient?.user?.name || 'Waitlisted Patient'}
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              {entry.patient?.user?.phone || 'No phone'}
+                            </p>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="font-mono font-bold text-indigo-700 text-xs bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                              {score} pts
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <Badge
+                              variant={
+                                entry.priority === 'EMERGENCY'
+                                  ? 'danger'
+                                  : entry.priority === 'HIGH'
+                                  ? 'warning'
+                                  : 'neutral'
+                              }
+                              size="xs"
+                            >
+                              {entry.priority}
+                            </Badge>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <Badge
+                              variant={
+                                entry.urgency === 'EMERGENCY'
+                                  ? 'danger'
+                                  : entry.urgency === 'HIGH'
+                                  ? 'warning'
+                                  : 'neutral'
+                              }
+                              size="xs"
+                            >
+                              {entry.urgency}
+                            </Badge>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 font-mono">
+                            {new Date(entry.createdAt).toLocaleDateString([], {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <Badge
+                              variant={
+                                entry.status === 'ALLOCATED'
+                                  ? 'success'
+                                  : entry.status === 'PENDING'
+                                  ? 'warning'
+                                  : 'neutral'
+                              }
+                              size="xs"
+                            >
+                              {entry.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* 2-Column Section: Schedule & Presence History */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Working Schedule Card */}
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">Working Schedule</h3>
-                  <p className="text-xs text-gray-500">
-                    Slot Duration: <strong>{doctorData?.consultationDuration || 30} mins</strong>
+                  <CardTitle>Working Schedule</CardTitle>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Consultation Duration: <strong>{doctorData?.consultationDuration || 30} mins</strong>
                   </p>
                 </div>
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setIsEditingSchedule(!isEditingSchedule)}
-                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200 transition"
                 >
-                  {isEditingSchedule ? 'Cancel' : '⚙️ Configure Schedule'}
-                </button>
+                  {isEditingSchedule ? 'Cancel' : '⚙️ Configure'}
+                </Button>
               </div>
+            </CardHeader>
 
+            <CardContent>
               {isEditingSchedule ? (
-                /* Schedule Edit Form */
-                <form onSubmit={handleScheduleSubmit} className="space-y-3">
-                  <div className="mb-2">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <form onSubmit={handleScheduleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                       Consultation Duration (minutes)
                     </label>
                     <input
@@ -1041,7 +1002,7 @@ function DoctorDashboard() {
                       step={5}
                       value={consultationDuration}
                       onChange={(e) => setConsultationDuration(e.target.value)}
-                      className="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                      className="w-36 px-3 py-2 border border-slate-300 rounded-xl text-sm"
                     />
                   </div>
 
@@ -1049,11 +1010,13 @@ function DoctorDashboard() {
                     {schedules.map((item, idx) => (
                       <div
                         key={item.dayOfWeek}
-                        className={`p-2.5 rounded-lg border flex items-center justify-between gap-2 text-xs ${
-                          item.isAvailable ? 'bg-blue-50/50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                        className={`p-3 rounded-xl border flex items-center justify-between gap-2 text-xs ${
+                          item.isAvailable
+                            ? 'bg-blue-50/40 border-blue-200'
+                            : 'bg-slate-50 border-slate-200'
                         }`}
                       >
-                        <label className="flex items-center gap-2 w-28 font-semibold text-gray-800">
+                        <label className="flex items-center gap-2 w-28 font-bold text-slate-800">
                           <input
                             type="checkbox"
                             checked={item.isAvailable}
@@ -1062,12 +1025,12 @@ function DoctorDashboard() {
                               updated[idx].isAvailable = e.target.checked;
                               setSchedules(updated);
                             }}
-                            className="rounded text-blue-600"
+                            className="rounded text-[#0072CE]"
                           />
                           {item.dayOfWeek.slice(0, 3)}
                         </label>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <input
                             type="time"
                             value={item.startTime}
@@ -1077,9 +1040,9 @@ function DoctorDashboard() {
                               updated[idx].startTime = e.target.value;
                               setSchedules(updated);
                             }}
-                            className="px-2 py-1 border rounded bg-white disabled:bg-gray-100 text-xs"
+                            className="px-2 py-1 border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 text-xs"
                           />
-                          <span>to</span>
+                          <span className="text-slate-400">to</span>
                           <input
                             type="time"
                             value={item.endTime}
@@ -1089,293 +1052,327 @@ function DoctorDashboard() {
                               updated[idx].endTime = e.target.value;
                               setSchedules(updated);
                             }}
-                            className="px-2 py-1 border rounded bg-white disabled:bg-gray-100 text-xs"
+                            className="px-2 py-1 border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 text-xs"
                           />
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <button
-                    type="submit"
-                    className="w-full mt-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition"
-                  >
+                  <Button type="submit" variant="primary" size="sm" className="w-full">
                     Save Working Schedule
-                  </button>
+                  </Button>
                 </form>
               ) : (
-                /* Schedule View Table */
-                <div className="divide-y divide-gray-100 text-xs">
+                <div className="divide-y divide-slate-100 text-xs">
                   {doctorData?.availabilities?.length === 0 ? (
-                    <p className="text-gray-400 py-4 text-center">
-                      No schedule configured yet. Click "Configure Schedule" above.
+                    <p className="text-slate-400 py-6 text-center">
+                      No schedule configured yet. Click "Configure" above.
                     </p>
                   ) : (
                     doctorData?.availabilities?.map((slot) => (
                       <div
                         key={slot.id}
-                        className="py-2.5 flex items-center justify-between text-gray-700"
+                        className="py-3 flex items-center justify-between text-slate-700"
                       >
-                        <span className="font-semibold text-gray-900 w-28">
+                        <span className="font-bold text-slate-900 w-28">
                           {slot.dayOfWeek}
                         </span>
-                        <span className="font-mono text-gray-600">
+                        <span className="font-mono text-slate-600">
                           {slot.startTime} &ndash; {slot.endTime}
                         </span>
-                        <span className="px-2 py-0.5 bg-green-50 text-green-700 font-semibold rounded text-[10px]">
-                          Active
-                        </span>
+                        <Badge variant="success" size="xs">
+                          Active Shift
+                        </Badge>
                       </div>
                     ))
                   )}
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Presence History Audit Log */}
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="text-base font-bold text-gray-900 mb-1">
-              Presence History Log
-            </h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Chronological log of presence status transitions recorded in PresenceLog.
-            </p>
+          <Card>
+            <CardHeader>
+              <CardTitle>Presence History Log</CardTitle>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Chronological log of presence status transitions recorded in PresenceLog.
+              </p>
+            </CardHeader>
 
-            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-              {presenceLogs.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-6">
-                  No presence transitions logged yet.
-                </p>
-              ) : (
-                presenceLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-3 rounded-xl border border-gray-100 bg-gray-50/70 text-xs flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${getPresenceBadgeColor(
-                            log.status
-                          )}`}
-                        >
-                          {log.status}
-                        </span>
-                        <span className="text-[11px] text-gray-400">
-                          via {log.detectionMethod || 'MANUAL'}
-                        </span>
+            <CardContent>
+              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                {presenceLogs.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-8">
+                    No presence transitions logged yet.
+                  </p>
+                ) : (
+                  presenceLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-3 rounded-xl border border-slate-100 bg-slate-50 text-xs flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              log.status === 'PRESENT' || log.status === 'AVAILABLE'
+                                ? 'success'
+                                : log.status === 'BUSY'
+                                ? 'warning'
+                                : 'neutral'
+                            }
+                            size="xs"
+                          >
+                            {log.status}
+                          </Badge>
+                          <span className="text-[11px] text-slate-400">
+                            via {log.detectionMethod || 'MANUAL'}
+                          </span>
+                        </div>
+                        {log.notes && (
+                          <p className="text-slate-600 text-[11px] mt-1">{log.notes}</p>
+                        )}
                       </div>
-                      {log.notes && (
-                        <p className="text-gray-600 text-[11px] mt-1">{log.notes}</p>
-                      )}
+                      <span className="text-[10px] text-slate-400 font-mono text-right">
+                        {new Date(log.timestamp).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-gray-400 text-right">
-                      {new Date(log.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Profile Edit Modal */}
-        {isEditingProfile && (
-          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-gray-100 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b mb-4">
-                <h3 className="text-base font-bold text-gray-900">
-                  Edit Doctor Profile
-                </h3>
-                <button
-                  onClick={() => setIsEditingProfile(false)}
-                  className="text-gray-400 hover:text-gray-600 text-sm font-bold"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <form onSubmit={handleProfileSubmit} className="space-y-3 text-xs">
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    Doctor Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={profileForm.name}
-                    onChange={(e) =>
-                      setProfileForm({ ...profileForm, name: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Phone Number
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.phone}
-                      onChange={(e) =>
-                        setProfileForm({ ...profileForm, phone: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Room / Clinic
-                    </label>
-                    <input
-                      type="text"
-                      value={profileForm.roomNumber}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          roomNumber: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Specialization
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={profileForm.specialization}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          specialization: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Department
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={profileForm.department}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          department: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Experience (yrs)
-                    </label>
-                    <input
-                      type="number"
-                      value={profileForm.experience}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          experience: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Fee (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={profileForm.consultationFee}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          consultationFee: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-gray-700 mb-1">
-                      Duration (min)
-                    </label>
-                    <input
-                      type="number"
-                      value={profileForm.consultationDuration}
-                      onChange={(e) =>
-                        setProfileForm({
-                          ...profileForm,
-                          consultationDuration: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-1">
-                    Qualifications
-                  </label>
-                  <input
-                    type="text"
-                    value={profileForm.qualification}
-                    onChange={(e) =>
-                      setProfileForm({
-                        ...profileForm,
-                        qualification: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-
-                <div className="pt-3 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingProfile(false)}
-                    className="px-4 py-2 border rounded-lg font-medium text-gray-600 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </form>
+        {/* Smart Allocation Modal */}
+        <Modal
+          isOpen={showAllocateModal}
+          onClose={() => setShowAllocateModal(false)}
+          title="Smart Allocation Engine"
+          description="Specify an open consultation slot. The engine will evaluate the waitlist, pick the patient with the highest clinical score, and promote them."
+        >
+          <form onSubmit={handleRunAllocation} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-bold text-slate-700 uppercase mb-1">
+                Slot Date
+              </label>
+              <input
+                type="date"
+                required
+                value={allocationForm.appointmentDate}
+                onChange={(e) =>
+                  setAllocationForm({
+                    ...allocationForm,
+                    appointmentDate: e.target.value,
+                  })
+                }
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+              />
             </div>
-          </div>
-        )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  Start Time
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={allocationForm.startTime}
+                  onChange={(e) =>
+                    setAllocationForm({
+                      ...allocationForm,
+                      startTime: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  End Time
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={allocationForm.endTime}
+                  onChange={(e) =>
+                    setAllocationForm({
+                      ...allocationForm,
+                      endTime: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAllocateModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                isLoading={isAllocating}
+              >
+                Execute Allocation
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Profile Edit Modal */}
+        <Modal
+          isOpen={isEditingProfile}
+          onClose={() => setIsEditingProfile(false)}
+          title="Edit Doctor Profile"
+          description="Update your professional credentials, fees, and clinic details."
+        >
+          <form onSubmit={handleProfileSubmit} className="space-y-3.5 text-xs">
+            <div>
+              <label className="block font-bold text-slate-700 uppercase mb-1">
+                Doctor Name
+              </label>
+              <input
+                type="text"
+                required
+                value={profileForm.name}
+                onChange={(e) =>
+                  setProfileForm({ ...profileForm, name: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.phone}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, phone: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  Room Number
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.roomNumber}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, roomNumber: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  Specialization
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.specialization}
+                  onChange={(e) =>
+                    setProfileForm({
+                      ...profileForm,
+                      specialization: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  Department
+                </label>
+                <input
+                  type="text"
+                  value={profileForm.department}
+                  onChange={(e) =>
+                    setProfileForm({
+                      ...profileForm,
+                      department: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  Experience (Years)
+                </label>
+                <input
+                  type="number"
+                  value={profileForm.experience}
+                  onChange={(e) =>
+                    setProfileForm({
+                      ...profileForm,
+                      experience: parseInt(e.target.value, 10) || 0,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 uppercase mb-1">
+                  Consultation Fee (₹)
+                </label>
+                <input
+                  type="number"
+                  value={profileForm.consultationFee}
+                  onChange={(e) =>
+                    setProfileForm({
+                      ...profileForm,
+                      consultationFee: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditingProfile(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="sm">
+                Save Profile
+              </Button>
+            </div>
+          </form>
+        </Modal>
       </main>
 
-      <footer className="text-center py-4 text-xs text-gray-400 bg-white border-t border-gray-100">
-        MediFlow AI &copy; Smart Hospital Appointment &amp; Doctor Availability Management System
+      <footer className="text-center py-5 text-xs text-slate-400 bg-white border-t border-slate-200">
+        MediFlow AI 2.0 &bull; Clinician Presence, Dynamic Queue &amp; Smart Hospital Management
       </footer>
     </div>
   );

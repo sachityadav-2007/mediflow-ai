@@ -390,6 +390,18 @@ export const getMLModelEvaluation = async () => {
   return response.data;
 };
 
+// Admin: Get Real Data Quality & Completeness Audit
+export const getMLDataQualityAudit = async () => {
+  const response = await api.get('/api/ai/admin/data-quality');
+  return response.data;
+};
+
+// Admin: Trigger controlled model retraining with data quality pre-validation
+export const triggerMLRetraining = async (data = {}) => {
+  const response = await api.post('/api/ai/admin/retrain', data);
+  return response.data;
+};
+
 // General / Doctor: Predict expected consultation duration
 export const getMLAppointmentDuration = async (params = {}) => {
   const response = await api.get('/api/ai/appointment-duration', { params });

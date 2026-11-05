@@ -105,3 +105,15 @@ ML models provide advisory waiting times and demand insights, but never confirm 
 3. `consultationCompletedAt`: Automatically recorded when the clinician marks 'Complete Consultation'.  
 This captures genuine patient waiting times ($\text{start} - \text{check-in}$) and consultation durations ($\text{end} - \text{start}$) in real-time. Once $\ge 500$ clinical events accumulate, an automated retraining script will update the model registry with real production weights."
 
+---
+
+### Q10: Why didn't you retrain the ML models automatically upon every appointment completion?
+**Answer:**  
+"Continuous automatic retraining upon every appointment completion is an anti-pattern in safety-critical healthcare for three reasons:
+1. **Model Drift & Poisoning Risk:** A single data entry error, inverted timestamp, or atypical 2-minute consultation could skew decision trees across the entire hospital system.
+2. **Computational Overhead:** Retraining multi-department regression models and time-series feature engineering during peak hospital hours consumes server CPU, degrading interactive booking response times.
+3. **Controlled Governance:** MediFlow AI 2.0 enforces a **Controlled Retraining Workflow**. Before any model can be trained:
+   - An automated **Data Quality Audit** validates that real labelled samples meet strict statistical thresholds ($N \ge 100$, $< 10\%$ invalid timestamps).
+   - Candidate models must demonstrably outperform naive statistical baselines on chronological splits.
+   - Only authorized system administrators can trigger or approve model activation."
+

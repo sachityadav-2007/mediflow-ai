@@ -203,6 +203,108 @@ const getModelEvaluation = async () => {
   return await mlServiceClient.getModelEvaluation();
 };
 
+const getDataQualityAudit = async () => {
+  const appointments = await prisma.appointment.findMany({
+    select: {
+      id: true,
+      appointmentDate: true,
+      priority: true,
+      status: true,
+      checkedInAt: true,
+      consultationStartedAt: true,
+      consultationCompletedAt: true,
+      actualDurationMinutes: true,
+      doctor: {
+        select: {
+          id: true,
+          department: true,
+          specialization: true,
+        },
+      },
+    },
+  });
+
+  const attendances = await prisma.doctorAttendance.findMany({
+    select: {
+      id: true,
+      doctorId: true,
+      checkInTime: true,
+      checkOutTime: true,
+      durationMinutes: true,
+      status: true,
+      location: true,
+    },
+  });
+
+  const doctors = await prisma.doctor.findMany({
+    select: {
+      id: true,
+      department: true,
+      specialization: true,
+      currentPresence: true,
+    },
+  });
+
+  const payload = {
+    appointments: appointments.map((a) => ({
+      id: a.id,
+      appointmentDate: a.appointmentDate,
+      priority: a.priority,
+      status: a.status,
+      checkedInAt: a.checkedInAt,
+      consultationStartedAt: a.consultationStartedAt,
+      consultationCompletedAt: a.consultationCompletedAt,
+      actualDurationMinutes: a.actualDurationMinutes,
+      department: a.doctor?.department || 'General Medicine',
+    })),
+    attendances,
+    doctors,
+  };
+
+  return await mlServiceClient.auditDataQuality(payload);
+};
+
+const triggerRetraining = async ({ modelName = 'all', forceSyntheticBenchmark = false }) => {
+  const appointments = await prisma.appointment.findMany({
+    select: {
+      id: true,
+      appointmentDate: true,
+      priority: true,
+      status: true,
+      checkedInAt: true,
+      consultationStartedAt: true,
+      consultationCompletedAt: true,
+      actualDurationMinutes: true,
+      doctor: { select: { department: true } },
+    },
+  });
+
+  const attendances = await prisma.doctorAttendance.findMany({
+    select: {
+      id: true,
+      doctorId: true,
+      checkInTime: true,
+      checkOutTime: true,
+      durationMinutes: true,
+      status: true,
+    },
+  });
+
+  const dataPayload = {
+    appointments: appointments.map((a) => ({
+      ...a,
+      department: a.doctor?.department || 'General Medicine',
+    })),
+    attendances,
+  };
+
+  return await mlServiceClient.triggerRetraining({
+    model_name: modelName,
+    force_synthetic_benchmark: forceSyntheticBenchmark,
+    data_payload: dataPayload,
+  });
+};
+
 const getSmartRecommendations = async (params) => {
   // Recommendations are dynamic, compute freshly
   const result = await getRecommendedSlots(params);
@@ -319,6 +421,8 @@ module.exports = {
   getAppointmentDuration,
   getModelStatus,
   getModelEvaluation,
+  getDataQualityAudit,
+  triggerRetraining,
   clearCache,
 };
 

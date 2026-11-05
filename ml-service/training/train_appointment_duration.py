@@ -9,7 +9,7 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sklearn.dummy import DummyRegressor
@@ -117,7 +117,7 @@ def train_appointment_duration_pipeline(use_synthetic: bool = True):
         "model_family": best_metrics["model_name"],
         "version": "1.0.0-dev",
         "status": "IMPLEMENTED_BUT_INSUFFICIENT_DATA",
-        "training_date": datetime.utcnow().isoformat() + "Z",
+        "training_date": datetime.now(timezone.utc).isoformat() + "Z",
         "dataset_type": dataset_type,
         "dataset_size": len(df),
         "date_range": "2026-09-01 to 2026-10-31",

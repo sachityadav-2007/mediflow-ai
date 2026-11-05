@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import {
   getMLModelStatus,
   getMLModelEvaluation,
+  getMLDataQualityAudit,
+  triggerMLRetraining,
   getDepartmentDemandForecast,
   getDoctorAvailability,
   getWaitingTimeEstimate,
@@ -23,6 +25,9 @@ const DEPARTMENTS = [
 export default function AIIntelligenceCenter() {
   const [modelStatus, setModelStatus] = useState(null);
   const [modelEvaluation, setModelEvaluation] = useState(null);
+  const [dataQualityAudit, setDataQualityAudit] = useState(null);
+  const [retrainingLoading, setRetrainingLoading] = useState(false);
+  const [retrainFeedback, setRetrainFeedback] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedDept, setSelectedDept] = useState('Cardiology');
   const [demandForecast, setDemandForecast] = useState(null);
@@ -47,9 +52,10 @@ export default function AIIntelligenceCenter() {
   const fetchIntelligenceData = async () => {
     setLoading(true);
     try {
-      const [statusRes, evalRes] = await Promise.all([
+      const [statusRes, evalRes, auditRes] = await Promise.all([
         getMLModelStatus().catch((err) => ({ status: 'unavailable', error: err.message })),
         getMLModelEvaluation().catch((err) => ({ status: 'unavailable', error: err.message })),
+        getMLDataQualityAudit().catch((err) => ({ status: 'unavailable', error: err.message })),
       ]);
       setModelStatus(statusRes);
       if (evalRes?.evaluation) {
@@ -57,10 +63,33 @@ export default function AIIntelligenceCenter() {
       } else if (evalRes?.models) {
         setModelEvaluation(evalRes);
       }
+      if (auditRes?.audit) {
+        setDataQualityAudit(auditRes.audit);
+      }
     } catch (err) {
       console.error('Failed to load ML intelligence data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRetrain = async (forceSynthetic) => {
+    setRetrainingLoading(true);
+    setRetrainFeedback(null);
+    try {
+      const res = await triggerMLRetraining({ forceSyntheticBenchmark: forceSynthetic });
+      setRetrainFeedback({
+        type: 'success',
+        message: res.result?.message || 'Retraining completed successfully.',
+      });
+      await fetchIntelligenceData();
+    } catch (err) {
+      setRetrainFeedback({
+        type: 'error',
+        message: err.response?.data?.message || err.message || 'Retraining request failed.',
+      });
+    } finally {
+      setRetrainingLoading(false);
     }
   };
 
@@ -151,6 +180,139 @@ export default function AIIntelligenceCenter() {
               <span>FastAPI Service (Port 5002): {isHealthy ? 'ONLINE (HEALTHY)' : 'DEGRADED / FALLBACK'}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 1.5 Real Operational Data Readiness & Retraining Governance */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900">Operational Data Quality & Label Completeness Audit</h3>
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide border ${
+                dataQualityAudit?.system_status === 'READY_FOR_TRAINING'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}>
+                {dataQualityAudit?.system_status || 'INSUFFICIENT_DATA'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Strict scientific gating: Production model retraining requires verified ground-truth clinical timestamps.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={retrainingLoading}
+              onClick={() => handleRetrain(false)}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+              title="Audit real data and attempt retraining (rejected if insufficient)"
+            >
+              {retrainingLoading ? 'Auditing...' : 'Attempt Production Retraining'}
+            </button>
+            <button
+              type="button"
+              disabled={retrainingLoading}
+              onClick={() => handleRetrain(true)}
+              className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-xs disabled:opacity-50 cursor-pointer"
+              title="Regenerate verified development benchmark for viva presentation"
+            >
+              Regenerate Dev Benchmark
+            </button>
+          </div>
+        </div>
+
+        {/* Retraining Feedback Alert */}
+        {retrainFeedback && (
+          <div className={`p-4 rounded-xl text-xs font-medium border flex items-start justify-between gap-3 ${
+            retrainFeedback.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+              : 'bg-amber-50 text-amber-800 border-amber-200'
+          }`}>
+            <div className="flex items-start gap-2">
+              <span>{retrainFeedback.type === 'success' ? '✓' : '⚠️'}</span>
+              <span>{retrainFeedback.message}</span>
+            </div>
+            <button
+              onClick={() => setRetrainFeedback(null)}
+              className="text-slate-400 hover:text-slate-600 cursor-pointer text-xs"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Model-by-Model Quality Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {[
+            {
+              id: 'patient_waiting_time',
+              label: '1. Waiting Time Regressor',
+              audit: dataQualityAudit?.models?.patient_waiting_time,
+              target: 'checkedInAt → consultationStartedAt',
+              threshold: '≥ 100 valid pairs',
+            },
+            {
+              id: 'doctor_availability_and_delay',
+              label: '2. Availability & Delay Classifier',
+              audit: dataQualityAudit?.models?.doctor_availability_and_delay,
+              target: 'Verified QR shift attendance logs',
+              threshold: '≥ 100 shift records',
+            },
+            {
+              id: 'appointment_duration',
+              label: '3. Consultation Duration',
+              audit: dataQualityAudit?.models?.appointment_duration,
+              target: 'consultationStartedAt → consultationCompletedAt',
+              threshold: '≥ 100 valid pairs',
+            },
+            {
+              id: 'department_demand_forecast',
+              label: '4. Department Demand Forecaster',
+              audit: dataQualityAudit?.models?.department_demand_forecast,
+              target: 'Contiguous calendar booking days',
+              threshold: '≥ 60 operational days',
+            },
+          ].map((item) => (
+            <div key={item.id} className="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70 text-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-bold text-slate-800">{item.label}</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    item.audit?.status === 'READY_FOR_TRAINING'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {item.audit?.status || 'INSUFFICIENT'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-mono mb-2">{item.target}</p>
+                
+                <div className="space-y-1 text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Valid Labelled:</span>
+                    <strong className="text-slate-900">{item.audit?.valid_labelled_records ?? 0}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Required Threshold:</span>
+                    <span className="font-semibold text-purple-700">{item.threshold}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Missing Label Rate:</span>
+                    <span className="text-slate-700">{item.audit?.missing_label_percentage ?? 100}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {item.audit?.issues?.[0] && (
+                <div className="mt-3 pt-2 border-t border-slate-200 text-[10px] text-amber-800 italic">
+                  ℹ️ {item.audit.issues[0]}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 

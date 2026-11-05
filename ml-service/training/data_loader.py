@@ -143,12 +143,13 @@ def generate_dev_pipeline_dataset(dataset_type: str, n_samples: int = 1000, seed
         records = []
         for d_idx in range(120):
             cur_date = base_date + pd.Timedelta(days=d_idx)
-            is_weekend = 1 if cur_date.dayofweek in [5, 6] else 0
+            day_idx = cur_date.day_of_week if hasattr(cur_date, 'day_of_week') else getattr(cur_date, 'dayofweek', 0)
+            is_weekend = 1 if day_idx in [5, 6] else 0
             
             for dept in departments:
                 base_demand = {"General Medicine": 35, "Pediatrics": 25, "Cardiology": 20}.get(dept, 15)
                 # Seasonality + weekend drop + random noise
-                day_factor = 0.35 if is_weekend else (1.2 if cur_date.dayofweek == 0 else 1.0)
+                day_factor = 0.35 if is_weekend else (1.2 if day_idx == 0 else 1.0)
                 mean_count = base_demand * day_factor
                 actual_count = int(np.random.poisson(lam=mean_count))
                 

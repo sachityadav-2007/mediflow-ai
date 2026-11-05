@@ -23,17 +23,31 @@ MediFlow AI 2.0 is an enterprise-grade hospital outpatient department (OPD) inte
 3. [Key Features](#-key-features)
 4. [Technology Stack](#-technology-stack)
 5. [System Architecture](#-system-architecture)
-6. [Project Structure](#-project-structure)
-7. [Installation & Setup](#-installation--setup)
-8. [Environment Configuration](#-environment-configuration)
-9. [Database Provisioning & Migrations](#-database-provisioning--migrations)
-10. [Starting All Services](#-starting-all-services)
-11. [API Documentation](#-api-documentation)
-12. [Machine Learning Models & Data Governance](#-machine-learning-models--data-governance)
-13. [Screenshots](#-screenshots)
-14. [Testing & Verification Suites](#-testing--verification-suites)
-15. [Role-Based Access Demo Credentials](#-role-based-access-demo-credentials)
-16. [Future Scope & Roadmap](#-future-scope--roadmap)
+6. [Detailed Technical Guides](#-detailed-technical-guides)
+7. [Project Structure](#-project-structure)
+8. [Installation & Setup](#-installation--setup)
+9. [Environment Configuration](#-environment-configuration)
+10. [Database Provisioning & Migrations](#-database-provisioning--migrations)
+11. [Starting All Services](#-starting-all-services)
+12. [API Documentation](#-api-documentation)
+13. [Machine Learning Models & Data Governance](#-machine-learning-models--data-governance)
+14. [Screenshots](#-screenshots)
+15. [Testing & Verification Suites](#-testing--verification-suites)
+16. [Role-Based Access Demo Credentials](#-role-based-access-demo-credentials)
+17. [Future Scope & Roadmap](#-future-scope--roadmap)
+
+---
+
+## 📚 Detailed Technical Guides
+
+For comprehensive technical deep-dives, consult the dedicated architecture specifications in `docs/`:
+
+* 🏛️ **[System Architecture (`docs/SYSTEM_ARCHITECTURE.md`)](docs/SYSTEM_ARCHITECTURE.md)**: Full component breakdown, decoupled microservices, and communication protocols.
+* 🗄️ **[Database Design & Schema (`docs/DATABASE_DESIGN.md`)](docs/DATABASE_DESIGN.md)**: Prisma entity relationships, timestamps, and physical double-booking constraints.
+* 🔌 **[API Specification Guide (`docs/API_GUIDE.md`)](docs/API_GUIDE.md)**: Complete REST endpoint documentation with request/response schemas.
+* 🧠 **[ML Architecture & Governance (`docs/ML_ARCHITECTURE.md`)](docs/ML_ARCHITECTURE.md)**: Mathematical baselines, models, dev metrics, and honest governance boundaries.
+* 🚀 **[Deployment & DevOps Guide (`docs/DEPLOYMENT_GUIDE.md`)](docs/DEPLOYMENT_GUIDE.md)**: Production PM2, Gunicorn/Uvicorn, Nginx reverse proxy, and database backup routines.
+* 🧪 **[Testing & QA Guide (`docs/TESTING_GUIDE.md`)](docs/TESTING_GUIDE.md)**: Unit, integration, E2E test commands, and manual viva demonstration steps.
 
 ---
 

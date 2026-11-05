@@ -307,6 +307,65 @@ const getAdminModelEvaluation = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/ai/admin/data-quality
+ * Inspect operational dataset completeness against model minimum thresholds (ADMIN only)
+ */
+const getDataQualityAudit = async (req, res) => {
+  try {
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Administrator privileges required.',
+      });
+    }
+
+    const audit = await aiService.getDataQualityAudit();
+    return res.status(200).json({
+      success: true,
+      audit,
+    });
+  } catch (error) {
+    console.error('Error in getDataQualityAudit:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to execute data quality audit.',
+    });
+  }
+};
+
+/**
+ * POST /api/ai/admin/retrain
+ * Trigger controlled model retraining with data quality pre-validation (ADMIN only)
+ */
+const triggerModelRetraining = async (req, res) => {
+  try {
+    if (req.user.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Administrator privileges required.',
+      });
+    }
+
+    const { modelName, forceSyntheticBenchmark } = req.body || {};
+    const result = await aiService.triggerRetraining({
+      modelName,
+      forceSyntheticBenchmark: Boolean(forceSyntheticBenchmark),
+    });
+
+    return res.status(200).json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    console.error('Error in triggerModelRetraining:', error.message);
+    return res.status(error.message.includes('INSUFFICIENT_DATA') ? 400 : 500).json({
+      success: false,
+      message: error.message || 'Model retraining failed.',
+    });
+  }
+};
+
 module.exports = {
   getDoctorAvailability,
   getAppointmentDemand,
@@ -318,5 +377,7 @@ module.exports = {
   getAppointmentDuration,
   getModelStatus,
   getAdminModelEvaluation,
+  getDataQualityAudit,
+  triggerModelRetraining,
 };
 

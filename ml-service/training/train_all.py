@@ -12,7 +12,7 @@ from training.train_doctor_availability import train_doctor_availability_pipelin
 from training.train_appointment_duration import train_appointment_duration_pipeline
 from training.train_department_demand import train_department_demand_pipeline
 
-def train_and_register_all():
+def train_all_models(use_synthetic: bool = True):
     print("=======================================================================")
     print("  MediFlow AI 2.0 — Master Training & Model Governance Suite           ")
     print("=======================================================================\n")
@@ -30,19 +30,19 @@ def train_and_register_all():
     }
 
     # 1. Waiting Time
-    m1 = train_waiting_time_pipeline(use_synthetic=True)
+    m1 = train_waiting_time_pipeline(use_synthetic=use_synthetic)
     registry["models"]["patient_waiting_time"] = m1
 
     # 2. Doctor Availability
-    m2 = train_doctor_availability_pipeline(use_synthetic=True)
+    m2 = train_doctor_availability_pipeline(use_synthetic=use_synthetic)
     registry["models"]["doctor_availability_and_delay"] = m2
 
     # 3. Consultation Duration
-    m3 = train_appointment_duration_pipeline(use_synthetic=True)
+    m3 = train_appointment_duration_pipeline(use_synthetic=use_synthetic)
     registry["models"]["appointment_duration"] = m3
 
     # 4. Department Demand
-    m4 = train_department_demand_pipeline(use_synthetic=True)
+    m4 = train_department_demand_pipeline(use_synthetic=use_synthetic)
     registry["models"]["department_demand_forecast"] = m4
 
     # Save Registry
@@ -54,6 +54,10 @@ def train_and_register_all():
     print("=======================================================================")
     print("  All 4 Machine Learning Pipelines Successfully Trained & Registered   ")
     print("=======================================================================")
+    return registry
+
+def train_and_register_all():
+    return train_all_models(use_synthetic=True)
 
 if __name__ == "__main__":
     train_and_register_all()

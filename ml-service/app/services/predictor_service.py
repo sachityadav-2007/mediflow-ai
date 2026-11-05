@@ -258,7 +258,7 @@ class PredictorService:
         for i in range(1, req.horizon_days + 1):
             future_date = today + pd.Timedelta(days=i)
             day_name = future_date.day_name().upper()
-            day_idx = future_date.dayofweek if hasattr(future_date, 'dayofweek') else future_date.day_of_week
+            day_idx = future_date.day_of_week if hasattr(future_date, 'day_of_week') else getattr(future_date, 'dayofweek', 0)
             is_weekend = 1 if day_idx in [5, 6] else 0
 
             # Seasonality multiplier

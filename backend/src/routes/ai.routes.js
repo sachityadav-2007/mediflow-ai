@@ -10,6 +10,8 @@ const {
   getAppointmentDuration,
   getModelStatus,
   getAdminModelEvaluation,
+  getDataQualityAudit,
+  triggerModelRetraining,
 } = require('../controllers/ai.controller');
 const {
   authenticateUser,
@@ -86,6 +88,28 @@ router.get(
   authenticateUser,
   authorizeRoles('ADMIN'),
   getAdminModelEvaluation
+);
+
+/**
+ * 11. ML Data Quality & Label Completeness Audit (Admin only)
+ * GET /api/ai/admin/data-quality
+ */
+router.get(
+  '/admin/data-quality',
+  authenticateUser,
+  authorizeRoles('ADMIN'),
+  getDataQualityAudit
+);
+
+/**
+ * 12. Controlled Model Retraining (Admin only)
+ * POST /api/ai/admin/retrain
+ */
+router.post(
+  '/admin/retrain',
+  authenticateUser,
+  authorizeRoles('ADMIN'),
+  triggerModelRetraining
 );
 
 module.exports = router;

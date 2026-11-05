@@ -9,7 +9,7 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sklearn.ensemble import RandomForestRegressor
@@ -125,7 +125,7 @@ def train_department_demand_pipeline(use_synthetic: bool = True):
         "model_family": "RandomForestRegressor (Time-Series Lag)",
         "version": "1.0.0-dev",
         "status": "IMPLEMENTED_BUT_INSUFFICIENT_DATA",
-        "training_date": datetime.utcnow().isoformat() + "Z",
+        "training_date": datetime.now(timezone.utc).isoformat() + "Z",
         "dataset_type": dataset_type,
         "dataset_size": len(raw_df),
         "date_range": "120 continuous operational days",

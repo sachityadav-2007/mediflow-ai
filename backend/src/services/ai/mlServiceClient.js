@@ -212,6 +212,41 @@ class MLServiceClient {
       };
     }
   }
+
+  /**
+   * 8. Get Data Quality Requirements
+   */
+  async getDataQualityRequirements() {
+    try {
+      return await this._request('GET', '/data-quality/requirements');
+    } catch (err) {
+      return {
+        status: 'unavailable',
+        error: err.message,
+      };
+    }
+  }
+
+  /**
+   * 9. Audit Real Operational Data Quality
+   */
+  async auditDataQuality(payload) {
+    try {
+      return await this._request('POST', '/data-quality/audit', payload);
+    } catch (err) {
+      return {
+        status: 'unavailable',
+        error: err.message,
+      };
+    }
+  }
+
+  /**
+   * 10. Trigger Controlled Model Retraining
+   */
+  async triggerRetraining(payload) {
+    return await this._request('POST', '/data-quality/retrain', payload);
+  }
 }
 
 module.exports = new MLServiceClient();

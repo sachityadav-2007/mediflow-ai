@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.services.predictor_service import predictor_service
-from app.api.routes import health, predict, models_info
+from app.api.routes import health, predict, models_info, data_quality
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,6 +42,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(predict.router)
 app.include_router(models_info.router)
+app.include_router(data_quality.router)
 
 if __name__ == "__main__":
     uvicorn.run(

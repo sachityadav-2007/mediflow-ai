@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Badge from './ui/Badge';
@@ -8,9 +8,32 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [moreDropdownOpen, setMoreDropdownOpen] = useState(false);
+  const moreDropdownRef = useRef(null);
+
+  // Close dropdown on outside click or Escape key
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (moreDropdownRef.current && !moreDropdownRef.current.contains(event.target)) {
+        setMoreDropdownOpen(false);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setMoreDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   const handleLogout = async () => {
     setMobileMenuOpen(false);
+    setMoreDropdownOpen(false);
     await logout();
     navigate('/login');
   };
@@ -31,6 +54,13 @@ function Navbar() {
   const isActive = (path) => {
     if (path === '/' && location.pathname !== '/') return false;
     return location.pathname.startsWith(path);
+  };
+
+  const isMoreActive = (role) => {
+    if (role === 'PATIENT') return isActive('/book') || isActive('/waitlist') || isActive('/find-specialist') || isActive('/health-assistant');
+    if (role === 'DOCTOR') return isActive('/check-in');
+    if (role === 'ADMIN') return isActive('/admin/intelligence') || isActive('/check-in');
+    return false;
   };
 
   const navLinkClass = (path) =>
@@ -90,14 +120,8 @@ function Navbar() {
                 <Link to="/patient/dashboard" className={navLinkClass('/patient/dashboard')}>
                   Dashboard
                 </Link>
-                <Link to="/book" className={navLinkClass('/book')}>
-                  Book Slot
-                </Link>
                 <Link to="/my-appointments" className={navLinkClass('/my-appointments')}>
                   My Appointments
-                </Link>
-                <Link to="/waitlist" className={navLinkClass('/waitlist')}>
-                  Smart Waitlist
                 </Link>
               </>
             )}
@@ -109,9 +133,6 @@ function Navbar() {
                 </Link>
                 <Link to="/doctor/attendance" className={navLinkClass('/doctor/attendance')}>
                   📷 My Attendance
-                </Link>
-                <Link to="/check-in" className={navLinkClass('/check-in')}>
-                  📲 OPD Check-In
                 </Link>
               </>
             )}
@@ -130,13 +151,134 @@ function Navbar() {
                 <Link to="/admin/appointments" className={navLinkClass('/admin/appointments')}>
                   Appointments
                 </Link>
-                <Link to="/admin/intelligence" className={navLinkClass('/admin/intelligence')}>
-                  ⚡ AI Intelligence
-                </Link>
-                <Link to="/check-in" className={navLinkClass('/check-in')}>
-                  📲 OPD Check-In
-                </Link>
               </>
+            )}
+
+            {/* Clean Secondary Navigation: "More" Dropdown */}
+            {user && (
+              <div className="relative" ref={moreDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setMoreDropdownOpen((prev) => !prev)}
+                  className={`text-xs sm:text-sm font-semibold px-3 py-2 rounded-xl transition duration-150 flex items-center gap-1.5 cursor-pointer ${
+                    isMoreActive(user.role)
+                      ? 'text-[#0072CE] bg-blue-50/80 font-bold border border-blue-200/60'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  }`}
+                  aria-expanded={moreDropdownOpen}
+                  aria-haspopup="true"
+                >
+                  <span>More</span>
+                  <svg
+                    className={`w-3.5 h-3.5 transition-transform duration-150 ${moreDropdownOpen ? 'rotate-180 text-[#0072CE]' : 'text-slate-400'}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {moreDropdownOpen && (
+                  <div className="absolute right-0 mt-1.5 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                    {user.role === 'PATIENT' && (
+                      <>
+                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Patient Services
+                        </div>
+                        <Link
+                          to="/find-specialist"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/find-specialist') || isActive('/health-assistant')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">🧭</span>
+                          <span>Find Right Specialist</span>
+                        </Link>
+                        <Link
+                          to="/book"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/book')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">📅</span>
+                          <span>Book Slot</span>
+                        </Link>
+                        <Link
+                          to="/waitlist"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/waitlist')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">⏳</span>
+                          <span>Smart Waitlist</span>
+                        </Link>
+                      </>
+                    )}
+
+                    {user.role === 'DOCTOR' && (
+                      <>
+                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Clinical Tools
+                        </div>
+                        <Link
+                          to="/check-in"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/check-in')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">📲</span>
+                          <span>OPD Check-In Scanner</span>
+                        </Link>
+                      </>
+                    )}
+
+                    {user.role === 'ADMIN' && (
+                      <>
+                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Hospital Operations
+                        </div>
+                        <Link
+                          to="/admin/intelligence"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/admin/intelligence')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">⚡</span>
+                          <span>AI Intelligence Center</span>
+                        </Link>
+                        <Link
+                          to="/check-in"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/check-in')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">📲</span>
+                          <span>OPD Reception Scanner</span>
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -194,13 +336,23 @@ function Navbar() {
               <div className="flex items-center gap-2">
                 <Link
                   to="/login"
-                  className="text-xs sm:text-sm font-semibold text-slate-700 hover:text-[#0072CE] px-3.5 py-2 rounded-xl hover:bg-slate-50 transition"
+                  className={`text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl transition duration-150 ${
+                    isActive('/login')
+                      ? 'text-[#0072CE] bg-blue-50/80 font-bold border border-blue-200/80 shadow-2xs'
+                      : 'text-slate-700 hover:text-[#0072CE] hover:bg-slate-50'
+                  }`}
+                  aria-current={isActive('/login') ? 'page' : undefined}
                 >
                   Sign In
                 </Link>
                 <Link
                   to="/register"
-                  className="text-xs sm:text-sm font-bold px-4 py-2 rounded-xl bg-[#0072CE] hover:bg-[#005fa8] text-white transition shadow-xs"
+                  className={`text-xs sm:text-sm font-bold px-4 py-2 rounded-xl transition shadow-xs ${
+                    isActive('/register')
+                      ? 'bg-[#005fa8] text-white ring-2 ring-blue-300'
+                      : 'bg-[#0072CE] hover:bg-[#005fa8] text-white'
+                  }`}
+                  aria-current={isActive('/register') ? 'page' : undefined}
                 >
                   Register
                 </Link>
@@ -290,6 +442,13 @@ function Navbar() {
                   className={mobileNavLinkClass('/patient/dashboard')}
                 >
                   <span>📊 Patient Dashboard</span>
+                </Link>
+                <Link
+                  to="/find-specialist"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={mobileNavLinkClass('/find-specialist')}
+                >
+                  <span>🧭 Find Right Specialist</span>
                 </Link>
                 <Link
                   to="/book"
@@ -424,14 +583,24 @@ function Navbar() {
                 <Link
                   to="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-2.5 text-center text-xs font-bold text-slate-700 bg-slate-100 rounded-xl"
+                  className={`w-full py-2.5 text-center text-xs font-bold rounded-xl transition ${
+                    isActive('/login')
+                      ? 'text-[#0072CE] bg-blue-50 border border-blue-200/80 shadow-2xs'
+                      : 'text-slate-700 bg-slate-100 hover:bg-slate-200'
+                  }`}
+                  aria-current={isActive('/login') ? 'page' : undefined}
                 >
                   Sign In
                 </Link>
                 <Link
                   to="/register"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-full py-2.5 text-center text-xs font-bold text-white bg-[#0072CE] rounded-xl"
+                  className={`w-full py-2.5 text-center text-xs font-bold rounded-xl transition ${
+                    isActive('/register')
+                      ? 'bg-[#005fa8] text-white shadow-inner'
+                      : 'text-white bg-[#0072CE] hover:bg-[#005fa8]'
+                  }`}
+                  aria-current={isActive('/register') ? 'page' : undefined}
                 >
                   Register
                 </Link>

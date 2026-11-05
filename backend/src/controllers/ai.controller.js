@@ -366,6 +366,41 @@ const triggerModelRetraining = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/ai/specialty-recommendation
+ * AI Health Navigation Assistant: Suggests medical specialty and matching doctors
+ * based on patient-described symptoms.
+ */
+const recommendSpecialty = async (req, res) => {
+  try {
+    const { symptoms } = req.body || {};
+
+    if (!symptoms || typeof symptoms !== 'string' || symptoms.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide at least 3 characters describing your symptoms or health concern.',
+      });
+    }
+
+    if (symptoms.trim().length > 1500) {
+      return res.status(400).json({
+        success: false,
+        message: 'Symptom description exceeds the maximum length of 1,500 characters. Please summarize your primary symptoms.',
+      });
+    }
+
+    const recommendationData = await aiService.getSpecialtyRecommendation(symptoms);
+
+    return res.status(200).json(recommendationData);
+  } catch (error) {
+    console.error('Error in recommendSpecialty:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to generate medical specialty recommendation.',
+    });
+  }
+};
+
 module.exports = {
   getDoctorAvailability,
   getAppointmentDemand,
@@ -379,5 +414,6 @@ module.exports = {
   getAdminModelEvaluation,
   getDataQualityAudit,
   triggerModelRetraining,
+  recommendSpecialty,
 };
 

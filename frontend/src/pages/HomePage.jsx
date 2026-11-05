@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import ServerStatus from '../components/ServerStatus';
 import DoctorCard from '../components/DoctorCard';
 import CallNowModal from '../components/CallNowModal';
 import MediFlowHelperBubble from '../components/MediFlowHelperBubble';
@@ -21,7 +20,6 @@ function HomePage() {
   const [selectedCity, setSelectedCity] = useState('Pune');
   const [callModalDoctor, setCallModalDoctor] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
-  const [showArchDetails, setShowArchDetails] = useState(false);
 
   // Fetch doctors from backend
   const fetchDoctors = async () => {
@@ -452,59 +450,87 @@ function HomePage() {
         </section>
 
         {/* ============================================================= */}
-        {/* SYSTEM HEALTH & CAPSTONE ARCHITECTURE SECTION (For Viva)      */}
+        {/* WHY CHOOSE MEDIFLOW AI? PATIENT BENEFITS SECTION              */}
         {/* ============================================================= */}
-        <section className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🛠️</span>
-              <h3 className="font-extrabold text-sm text-gray-900">
-                System Health &amp; Capstone Technical Architecture
-              </h3>
+        <section className="bg-gradient-to-br from-white via-blue-50/20 to-slate-50 rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs space-y-8">
+          <div className="max-w-3xl space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/80 text-[#0072CE] text-xs font-bold">
+              <span>✨</span>
+              <span>Patient-Centered Healthcare Network</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowArchDetails((prev) => !prev)}
-              className="text-xs font-bold text-[#0072CE] hover:underline cursor-pointer"
-            >
-              {showArchDetails ? 'Hide Diagnostics ▲' : 'Show Diagnostics ▼'}
-            </button>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Why Choose MediFlow AI?
+            </h2>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Experience seamless, transparent, and dignified outpatient care powered by coordinated appointment scheduling and real-time clinic visibility.
+            </p>
           </div>
 
-          {showArchDetails && (
-            <div className="space-y-4 pt-2 border-t border-gray-100 animate-in fade-in">
-              <ServerStatus />
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-800">Database</p>
-                  <p className="text-gray-500">PostgreSQL + Prisma ORM (Port 5432)</p>
-                </div>
-                <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-800">Real-Time Sync</p>
-                  <p className="text-gray-500">Socket.IO Event Gateway (Active)</p>
-                </div>
-                <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-800">Authentication</p>
-                  <p className="text-gray-500">JWT + HTTP-Only Secure Cookies</p>
-                </div>
-                <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
-                  <p className="font-bold text-gray-800">Attendance Verification</p>
-                  <p className="text-gray-500">Cryptographic Time-Limited QR</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* 1. Smart Appointment Scheduling */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition duration-150 space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#0072CE] flex items-center justify-center text-xl font-bold">
+                📅
               </div>
+              <h3 className="text-sm font-bold text-slate-900">Smart Appointment Scheduling</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Choose from verified department consultants, select real-time available time windows, and confirm your visit without phone hold delays.
+              </p>
             </div>
-          )}
 
-          {/* Capstone Verification Ribbon */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-gray-100 text-xs">
-            <div className="flex items-center gap-2 text-gray-600">
-              <span>🎓</span>
-              <span><strong>MediFlow AI Capstone Project:</strong> Verified Production Architecture (Phases 1–12 Operational)</span>
+            {/* 2. Live Doctor Availability */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition duration-150 space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">
+                🩺
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Live Doctor Availability</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Authoritative on-duty presence tracked via hospital check-in logs so you always know when your doctor is present or in consultation.
+              </p>
             </div>
-            <div className="flex items-center gap-2 text-[11px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-lg">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>All 12 Phases Verified</span>
+
+            {/* 3. QR-Based Check-In */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition duration-150 space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl font-bold">
+                📲
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">QR-Based Fast Check-In</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Instant self-service arrival verification using cryptographic QR tokens at reception scanners to immediately enter the outpatient queue.
+              </p>
+            </div>
+
+            {/* 4. Real-Time Queue Updates */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition duration-150 space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-xl font-bold">
+                ⏱️
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Real-Time Queue Updates</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Live queue numbers and consultation status broadcasted via Socket.IO, letting you track your position and estimated wait from anywhere.
+              </p>
+            </div>
+
+            {/* 5. Smart Waitlist Management */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition duration-150 space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold">
+                ⚡
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Smart Waitlist Management</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Automated triage reallocation instantly transfers cancelled appointment slots to prioritized waitlisted patients without manual calls.
+              </p>
+            </div>
+
+            {/* 6. Reduced Waiting Time */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs hover:shadow-xs transition duration-150 space-y-2.5">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-xl font-bold">
+                🛡️
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Reduced Waiting Time</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Synchronized outpatient pacing balances clinical queues across departments, dramatically reducing hospital waiting room congestion.
+              </p>
             </div>
           </div>
         </section>

@@ -17,6 +17,7 @@ import {
   getAttendanceHistory,
 } from '../services/api';
 import AIIntelligenceCenter from '../components/AIIntelligenceCenter';
+import ServerStatus from '../components/ServerStatus';
 import { useSocket, useSocketStatus } from '../hooks/useSocket';
 
 function AdminDashboard({ initialTab = 'overview' }) {
@@ -812,6 +813,65 @@ function AdminDashboard({ initialTab = 'overview' }) {
                       </table>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Production System Health & Capstone Architecture (Protected Admin Section) */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🛠️</span>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-gray-900">
+                      System Diagnostics &amp; Production Architecture
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Protected hospital infrastructure monitoring for administrators
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-lg">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Phases 1–12 Operational</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+                <div className="lg:col-span-1">
+                  <ServerStatus />
+                </div>
+
+                <div className="lg:col-span-2 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100 space-y-1">
+                      <p className="font-bold text-gray-800">Authoritative Database</p>
+                      <p className="text-gray-500">PostgreSQL + Prisma ORM (Port 5432)</p>
+                      <p className="text-[11px] text-emerald-700 font-semibold">Active &bull; 5 Migrations Applied</p>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100 space-y-1">
+                      <p className="font-bold text-gray-800">Real-Time Event Gateway</p>
+                      <p className="text-gray-500">Socket.IO Gateway (Port 5001)</p>
+                      <p className="text-[11px] text-emerald-700 font-semibold">
+                        {isSocketConnected ? '🟢 Connected (Live Broadcasts Active)' : '🟡 Connecting...'}
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100 space-y-1">
+                      <p className="font-bold text-gray-800">Session Security</p>
+                      <p className="text-gray-500">JWT + HTTP-Only Secure Cookies</p>
+                      <p className="text-[11px] text-blue-700 font-semibold">Strict Role-Based Access Control</p>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100 space-y-1">
+                      <p className="font-bold text-gray-800">Attendance Verification</p>
+                      <p className="text-gray-500">Cryptographic Time-Limited QR Engine</p>
+                      <p className="text-[11px] text-purple-700 font-semibold">Self-expiring tokens with hash verification</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100 text-xs text-blue-900 flex items-center justify-between">
+                    <span>🎓 <strong>Capstone Technical Project:</strong> Production Outpatient &amp; Doctor Availability Architecture</span>
+                    <span className="font-bold text-[#0072CE]">MediFlow AI 2.0</span>
+                  </div>
                 </div>
               </div>
             </div>

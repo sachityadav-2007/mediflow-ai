@@ -13,6 +13,7 @@ import PatientWaitlistPage from './pages/PatientWaitlistPage';
 import LiveQueuePage from './pages/LiveQueuePage';
 import ReceptionCheckInPage from './pages/ReceptionCheckInPage';
 import DoctorAttendancePage from './pages/DoctorAttendancePage';
+import HealthAssistantPage from './pages/HealthAssistantPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -25,6 +26,8 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/doctors" element={<DoctorDirectoryPage />} />
+          <Route path="/find-specialist" element={<HealthAssistantPage />} />
+          <Route path="/health-assistant" element={<HealthAssistantPage />} />
           <Route path="/queue/:doctorId" element={<LiveQueuePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

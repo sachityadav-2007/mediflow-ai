@@ -8,6 +8,7 @@ const {
 } = require('./demandForecaster');
 const { estimateWaitingTime } = require('./waitingTimeEstimator');
 const { getRecommendedSlots } = require('./slotRecommender');
+const { recommendMedicalSpecialty } = require('./specialtyNavigator');
 
 /**
  * In-Memory Prediction Cache (TTL: 60 seconds)
@@ -411,6 +412,13 @@ const getAdminAnalytics = async () => {
   return result;
 };
 
+/**
+ * 13. AI Health Navigation & Specialty Recommendation
+ */
+const getSpecialtyRecommendation = async (symptoms) => {
+  return await recommendMedicalSpecialty(symptoms);
+};
+
 module.exports = {
   getAvailability,
   getDemand,
@@ -423,6 +431,7 @@ module.exports = {
   getModelEvaluation,
   getDataQualityAudit,
   triggerRetraining,
+  getSpecialtyRecommendation,
   clearCache,
 };
 

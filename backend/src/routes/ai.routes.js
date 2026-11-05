@@ -12,6 +12,7 @@ const {
   getAdminModelEvaluation,
   getDataQualityAudit,
   triggerModelRetraining,
+  recommendSpecialty,
 } = require('../controllers/ai.controller');
 const {
   authenticateUser,
@@ -110,6 +111,16 @@ router.post(
   authenticateUser,
   authorizeRoles('ADMIN'),
   triggerModelRetraining
+);
+
+/**
+ * 13. AI Health Navigation & Specialty Recommendation
+ * POST /api/ai/specialty-recommendation
+ */
+router.post(
+  '/specialty-recommendation',
+  authenticateUser,
+  recommendSpecialty
 );
 
 module.exports = router;

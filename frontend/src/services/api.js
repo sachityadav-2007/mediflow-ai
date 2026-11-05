@@ -426,4 +426,12 @@ export const getDepartmentDemandForecast = async (department) => {
   return response.data;
 };
 
+// -----------------------------------------------------------------------------
+// AI Health Navigation Assistant
+// -----------------------------------------------------------------------------
+export const getSpecialtyRecommendation = async (symptoms) => {
+  const response = await api.post('/api/ai/specialty-recommendation', { symptoms });
+  return response.data;
+};
+
 export default api;

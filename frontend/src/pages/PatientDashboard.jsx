@@ -122,6 +122,11 @@ function PatientDashboard() {
           }
           actions={
             <div className="flex flex-wrap gap-2.5">
+              <Link to="/find-specialist">
+                <Button variant="outline" size="sm" icon={<span>🧭</span>}>
+                  Find Specialist
+                </Button>
+              </Link>
               <Link to="/book">
                 <Button variant="primary" size="sm" icon={<span>📅</span>}>
                   Book Consultation
@@ -209,6 +214,27 @@ function PatientDashboard() {
               </Badge>
             }
           />
+        </div>
+
+        {/* AI Health Navigation Assistant Feature Card */}
+        <div className="bg-gradient-to-r from-blue-50/90 via-sky-50/50 to-white rounded-3xl p-6 border border-blue-200 shadow-xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0072CE] bg-blue-100/70 px-2.5 py-0.5 rounded-full">
+              <span>🧭</span>
+              <span>AI Health Navigation Assistant</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              Unsure which doctor or department to consult?
+            </h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Describe your symptoms and our clinical health navigator will guide you to the appropriate medical department and matching hospital specialists.
+            </p>
+          </div>
+          <Link to="/find-specialist" className="shrink-0 w-full sm:w-auto">
+            <Button variant="primary" size="md" icon={<span>🧭</span>} className="w-full sm:w-auto">
+              Ask MediFlow AI &rarr;
+            </Button>
+          </Link>
         </div>
 
         {/* Patient Profile & Health Summary */}

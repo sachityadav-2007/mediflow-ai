@@ -11,6 +11,7 @@ const waitlistRoutes = require('./routes/waitlist.routes');
 const adminRoutes = require('./routes/admin.routes');
 const aiRoutes = require('./routes/ai.routes');
 const checkInRoutes = require('./routes/checkIn.routes');
+const triageRoutes = require('./routes/triage.routes');
 
 const app = express();
 
@@ -57,5 +58,6 @@ app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/check-in', checkInRoutes);
+app.use('/api/triage', triageRoutes);
 
 module.exports = app;

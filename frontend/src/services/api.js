@@ -427,8 +427,23 @@ export const getDepartmentDemandForecast = async (department) => {
 };
 
 // -----------------------------------------------------------------------------
-// AI Health Navigation Assistant
+// AI Health Assistant & Smart Symptom Triage Services
 // -----------------------------------------------------------------------------
+export const analyzeTriageSymptoms = async ({ symptoms, duration, severity }) => {
+  const response = await api.post('/api/triage/analyze', { symptoms, duration, severity });
+  return response.data;
+};
+
+export const getTriageHistory = async () => {
+  const response = await api.get('/api/triage/history');
+  return response.data;
+};
+
+export const deleteTriageHistoryItem = async (historyId) => {
+  const response = await api.delete(`/api/triage/history/${historyId}`);
+  return response.data;
+};
+
 export const getSpecialtyRecommendation = async (symptoms) => {
   const response = await api.post('/api/ai/specialty-recommendation', { symptoms });
   return response.data;

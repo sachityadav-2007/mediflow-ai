@@ -26,13 +26,27 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/doctors" element={<DoctorDirectoryPage />} />
-          <Route path="/find-specialist" element={<HealthAssistantPage />} />
-          <Route path="/health-assistant" element={<HealthAssistantPage />} />
           <Route path="/queue/:doctorId" element={<LiveQueuePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Protected Role-Based Routes */}
+          <Route
+            path="/health-assistant"
+            element={
+              <ProtectedRoute allowedRoles={['PATIENT']}>
+                <HealthAssistantPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/find-specialist"
+            element={
+              <ProtectedRoute allowedRoles={['PATIENT']}>
+                <HealthAssistantPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/check-in"
             element={

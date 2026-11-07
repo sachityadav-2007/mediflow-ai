@@ -120,6 +120,9 @@ function Navbar() {
                 <Link to="/patient/dashboard" className={navLinkClass('/patient/dashboard')}>
                   Dashboard
                 </Link>
+                <Link to="/health-assistant" className={navLinkClass('/health-assistant')}>
+                  Health Assistant
+                </Link>
                 <Link to="/my-appointments" className={navLinkClass('/my-appointments')}>
                   My Appointments
                 </Link>
@@ -187,16 +190,16 @@ function Navbar() {
                           Patient Services
                         </div>
                         <Link
-                          to="/find-specialist"
+                          to="/health-assistant"
                           onClick={() => setMoreDropdownOpen(false)}
                           className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
-                            isActive('/find-specialist') || isActive('/health-assistant')
+                            isActive('/health-assistant') || isActive('/find-specialist')
                               ? 'text-[#0072CE] bg-blue-50 font-bold'
                               : 'text-slate-700 hover:bg-slate-50'
                           }`}
                         >
                           <span className="text-sm">🧭</span>
-                          <span>Find Right Specialist</span>
+                          <span>Health Assistant</span>
                         </Link>
                         <Link
                           to="/book"
@@ -444,11 +447,11 @@ function Navbar() {
                   <span>📊 Patient Dashboard</span>
                 </Link>
                 <Link
-                  to="/find-specialist"
+                  to="/health-assistant"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={mobileNavLinkClass('/find-specialist')}
+                  className={mobileNavLinkClass('/health-assistant')}
                 >
-                  <span>🧭 Find Right Specialist</span>
+                  <span>🧭 Health Assistant</span>
                 </Link>
                 <Link
                   to="/book"

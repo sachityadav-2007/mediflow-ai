@@ -377,22 +377,41 @@ npm --prefix frontend run dev
 | `POST` | `/api/auth/logout` | Authenticated | Clear session cookie |
 | `GET` | `/api/auth/me` | Authenticated | Get current authenticated user profile |
 
-### Doctors & Schedules
+### Doctors, Schedules & Smart Presence
 | Method | Endpoint | Access | Description |
 |:---|:---|:---|:---|
 | `GET` | `/api/doctors` | Public | List verified doctors with search and department filters |
 | `GET` | `/api/doctors/:id` | Public | Get doctor profile, active schedules, and current presence |
-| `PATCH` | `/api/doctors/presence` | Doctor / Admin | Update doctor physical presence (`PRESENT`, `AWAY`, `OFFLINE`) |
-| `POST` | `/api/doctors/attendance/qr` | Doctor / Admin | Generate or scan cryptographic attendance QR |
+| `GET` | `/api/presence/me` | Doctor | Fetch logged-in doctor attendance status, duration & active session |
+| `GET` | `/api/presence/qr/active` | Doctor / Admin | List active cryptographically signed hospital QR gates with base64 data URLs |
+| `POST` | `/api/presence/qr/check-in` | Doctor | Verify signed QR token & transition doctor to `PRESENT` |
+| `POST` | `/api/presence/qr/check-out` | Doctor | Check out of hospital shift, record duration & transition to `OFFLINE` |
+| `PUT` | `/api/presence/status` | Doctor | Fast presence state toggle (`AVAILABLE`, `IN_CONSULTATION`, `ON_BREAK`) |
+| `POST` | `/api/presence/qr/generate` | Admin | Provision new cryptographic hospital gate QR code |
 
 ### Appointments & Slots
 | Method | Endpoint | Access | Description |
 |:---|:---|:---|:---|
-| `GET` | `/api/appointments/slots` | Public | Fetch available, non-overlapping consultation slots |
+| `GET` | `/api/appointments/slots/:doctorId` | Public | Fetch available, non-overlapping consultation slots (presence-gated) |
 | `POST` | `/api/appointments` | Patient | Book an appointment slot inside a Prisma transaction |
 | `POST` | `/api/appointments/:id/reschedule`| Patient | Atomically reschedule appointment with waitlist reallocation |
 | `PATCH` | `/api/appointments/:id/cancel` | Patient / Admin | Cancel appointment and auto-allocate freed slot to waitlist |
 | `GET` | `/api/appointments/my` | Patient | View patient's booked appointments and digital QR tokens |
+
+### Smart Waitlist & Priority Allocation
+| Method | Endpoint | Access | Description |
+|:---|:---|:---|:---|
+| `POST` | `/api/waitlist` | Patient | Join doctor's waitlist queue with clinical urgency & priority scoring |
+| `GET` | `/api/waitlist/my` | Patient | View logged-in patient's active waitlist entries |
+| `GET` | `/api/waitlist/doctor/my` | Doctor | View doctor's ranked waitlist triage queue |
+| `PUT` | `/api/waitlist/:id/leave` | Patient / Admin | Leave waitlist queue |
+| `POST` | `/api/waitlist/allocate` | Admin / Doctor | Trigger smart allocation of freed appointment slot to waitlist |
+
+### AI Health Assistant & Smart Symptom Triage
+| Method | Endpoint | Access | Description |
+|:---|:---|:---|:---|
+| `POST` | `/api/triage/analyze` | Patient | Emergency detection circuit, department routing & doctor matching |
+| `GET` | `/api/triage/history` | Patient | View patient's historical symptom evaluations and recommendations |
 
 ### Check-In & OPD Queue
 | Method | Endpoint | Access | Description |
@@ -466,31 +485,39 @@ MediFlow AI includes exhaustive automated test batteries across all layers:
 ```bash
 PYTHONPATH=ml-service pytest ml-service/tests
 ```
-**Results:** `10 passed in 1.13s` (100% pass rate covering API contracts, model serialization, preprocessing pipelines, and health probes).
+**Results:** `15 passed in 1.90s` (100% pass rate covering API contracts, model serialization, preprocessing pipelines, data quality metrics, and health probes).
 
-### 2. Express Backend Master Test Battery
+### 2. Complete End-to-End System Integration Audit
+```bash
+node scratch/test_complete_integration_audit.mjs
+```
+**Results:** `62 passed, 0 failed (100%)` across all 8 major architectural layers:
+- Section 1: Service Health Verification (Express 5001 + FastAPI 5002)
+- Section 2: Authentication & Role-Based Access Control (Admin, Doctor, Patient, RBAC rejection)
+- Section 3: Smart Doctor Presence & Shift Terminal Integration (QR Check-In, Status, Duplicate Prevention, Admin Directory sync, Check-Out)
+- Section 4: Appointment System & Presence Gating (Offline slot blocking, present slot unlocking, slot reservations)
+- Section 5: Dynamic Waitlist & Smart Priority Allocation (Urgency triage, queue rankings)
+- Section 6: ML Prediction Microservice Integration & Explainability (Waiting Time, Availability, Duration, Demand)
+- Section 7: Admin AI Intelligence Center & Data Governance (Model registry, data quality audit, dev benchmark verification)
+- Section 8: AI Health Assistant & Smart Symptom Triage (Emergency keyword circuit, department navigation, patient history)
+
+### 3. Smart Doctor Presence & QR Attendance Workflow Test
+```bash
+node scratch/test_doctor_presence.mjs
+```
+**Results:** `11 passed, 0 failed (100%)` (Validates QR check-in, presence transition to `PRESENT`, duplicate check-in 409 rejection, admin directory reflection, check-out transition to `OFFLINE`, session tracking, and slot gating).
+
+### 4. Express Backend Master Test Battery
 ```bash
 npm --prefix backend test
 ```
-**Results:** `186 passed, 0 failed` across 6 test suites:
-- Phase 10 E2E Verification: 21 passed
-- Phase 10 AI Prediction Engine: 28 passed
-- Phase 11 Notification Engine: 61 passed
-- Doctor QR Attendance & Geofencing: 40 passed
-- Data Integrity & Workflow Consistency: 21 passed
-- ML Service Integration & RBAC: 15 passed
+**Results:** `186 passed, 0 failed` across 6 test suites (E2E verification, AI prediction engine, notifications, QR attendance, data integrity, and RBAC).
 
-### 3. Final Integration & Security Verification
-```bash
-node scratch/audit_integration_verification.js
-```
-**Results:** `21 passed, 0 failed` (Verifies schema migration, consultation start/complete timestamps, doctor presence transitions, ML service fallback resilience, and secret sanitization).
-
-### 4. Frontend Production Build Check
+### 5. Frontend Production Build Check
 ```bash
 npm --prefix frontend run build
 ```
-**Results:** `✓ built in 1.24s` (Clean Vite production bundle without syntax or import errors).
+**Results:** `✓ built in 1.36s` (Clean Vite production bundle without syntax, linting, or module import errors).
 
 ---
 
@@ -500,7 +527,8 @@ The database seeder provisions initial test users across all three roles:
 
 | Role | Email Address | Password | Clinical Function / Context |
 |:---|:---|:---|:---|
-| **ADMIN** | `admin@mediflow.com` | `password123` | System Administrator with access to AI Intelligence Center & Audit Logs |
+| **ADMIN** | `admin@mediflow.com` | `password123` | System Administrator with access to AI Intelligence Center, QR Gates & Audit Logs |
+| **DOCTOR** | `dr.jawale@mediflow.com` | `password123` | Dr. Sunil Jawale (Cardiology Consultant — used in live presence demo) |
 | **DOCTOR** | `dr.sharma@mediflow.com` | `password123` | Dr. Rajesh Sharma (Cardiology Consultant, Room 101) |
 | **DOCTOR** | `dr.patel@mediflow.com` | `password123` | Dr. Ananya Patel (Neurology Consultant, Room 204) |
 | **PATIENT**| `rahul.verma@example.com` | `password123` | Test Patient with booked appointment and signed QR check-in pass |

@@ -81,6 +81,7 @@ function AdminDashboard({ initialTab = 'overview' }) {
 
   // Search terms for local quick filtering
   const [doctorSearch, setDoctorSearch] = useState('');
+  const [doctorPresenceFilter, setDoctorPresenceFilter] = useState('ALL');
   const [patientSearch, setPatientSearch] = useState('');
 
   // Doctor Attendance & Hospital QR Management States
@@ -372,10 +373,14 @@ function AdminDashboard({ initialTab = 'overview' }) {
   // ---------------------------------------------------------------------------
   const getPresenceBadge = (status) => {
     const config = {
-      PRESENT: { bg: 'bg-green-100 text-green-800 border-green-300', dot: 'bg-green-500', text: 'Present' },
-      BUSY: { bg: 'bg-yellow-100 text-yellow-800 border-yellow-300', dot: 'bg-yellow-500', text: 'Busy' },
-      AWAY: { bg: 'bg-amber-100 text-amber-800 border-amber-300', dot: 'bg-amber-500', text: 'Away' },
-      OFFLINE: { bg: 'bg-gray-100 text-gray-700 border-gray-300', dot: 'bg-gray-400', text: 'Offline' },
+      PRESENT: { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', dot: 'bg-emerald-500', text: 'Present / Available' },
+      AVAILABLE: { bg: 'bg-emerald-100 text-emerald-800 border-emerald-300', dot: 'bg-emerald-500', text: 'Present / Available' },
+      IN_CONSULTATION: { bg: 'bg-purple-100 text-purple-800 border-purple-300', dot: 'bg-purple-500', text: 'In Consultation' },
+      BUSY: { bg: 'bg-amber-100 text-amber-800 border-amber-300', dot: 'bg-amber-500', text: 'Busy' },
+      AWAY: { bg: 'bg-indigo-100 text-indigo-800 border-indigo-300', dot: 'bg-indigo-500', text: 'Away' },
+      ON_BREAK: { bg: 'bg-indigo-100 text-indigo-800 border-indigo-300', dot: 'bg-indigo-500', text: 'On Break' },
+      ON_LEAVE: { bg: 'bg-rose-100 text-rose-800 border-rose-300', dot: 'bg-rose-500', text: 'On Leave' },
+      OFFLINE: { bg: 'bg-slate-100 text-slate-700 border-slate-300', dot: 'bg-slate-400', text: 'Off Duty' },
     };
     const c = config[status] || config.OFFLINE;
     return (
@@ -420,12 +425,29 @@ function AdminDashboard({ initialTab = 'overview' }) {
   };
 
   // Filtered lists for local quick search
-  const filteredDoctors = doctors.filter(
-    (d) =>
+  const filteredDoctors = doctors.filter((d) => {
+    const matchesSearch =
       d.name.toLowerCase().includes(doctorSearch.toLowerCase()) ||
       d.specialization.toLowerCase().includes(doctorSearch.toLowerCase()) ||
-      d.department.toLowerCase().includes(doctorSearch.toLowerCase())
-  );
+      d.department.toLowerCase().includes(doctorSearch.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (doctorPresenceFilter === 'ALL') return true;
+    if (doctorPresenceFilter === 'PRESENT') {
+      return d.currentPresence === 'PRESENT' || d.currentPresence === 'AVAILABLE';
+    }
+    if (doctorPresenceFilter === 'OFFLINE') {
+      return d.currentPresence === 'OFFLINE';
+    }
+    if (doctorPresenceFilter === 'IN_CONSULTATION') {
+      return d.currentPresence === 'IN_CONSULTATION' || d.currentPresence === 'BUSY';
+    }
+    if (doctorPresenceFilter === 'AWAY') {
+      return d.currentPresence === 'AWAY' || d.currentPresence === 'ON_BREAK';
+    }
+    return d.currentPresence === doctorPresenceFilter;
+  });
 
   const filteredPatients = patients.filter(
     (p) =>
@@ -890,14 +912,27 @@ function AdminDashboard({ initialTab = 'overview' }) {
                   Doctor credentials, live presence, and clinical workload
                 </p>
               </div>
-              <div className="w-full sm:w-72">
-                <input
-                  type="text"
-                  placeholder="Search doctors by name or specialization..."
-                  value={doctorSearch}
-                  onChange={(e) => setDoctorSearch(e.target.value)}
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+                <select
+                  value={doctorPresenceFilter}
+                  onChange={(e) => setDoctorPresenceFilter(e.target.value)}
+                  className="w-full sm:w-44 text-xs px-3 py-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 font-semibold cursor-pointer"
+                >
+                  <option value="ALL">All Presences ({doctors.length})</option>
+                  <option value="PRESENT">🟢 Present / Available</option>
+                  <option value="IN_CONSULTATION">🟣 In Consultation</option>
+                  <option value="AWAY">🟡 Away / Break</option>
+                  <option value="OFFLINE">⚪ Off Duty / Offline</option>
+                </select>
+                <div className="w-full sm:w-64">
+                  <input
+                    type="text"
+                    placeholder="Search doctor or specialty..."
+                    value={doctorSearch}
+                    onChange={(e) => setDoctorSearch(e.target.value)}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
               </div>
             </div>
 

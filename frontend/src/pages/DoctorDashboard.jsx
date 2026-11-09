@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -13,6 +14,10 @@ import {
   triggerSmartAllocation,
   getDoctorForecast,
   updateConsultationState,
+  getDoctorMyAttendance,
+  doctorCheckInQR,
+  doctorCheckOutQR,
+  getActiveHospitalQRCodes,
 } from '../services/api';
 import { useSocket } from '../hooks/useSocket';
 import Button from '../components/ui/Button';
@@ -56,6 +61,20 @@ function DoctorDashboard() {
   // Presence state
   const [currentStatus, setCurrentStatus] = useState('OFFLINE');
   const [updatingPresence, setUpdatingPresence] = useState(false);
+
+  // Smart Doctor Presence & Shift Terminal State
+  const [attendanceData, setAttendanceData] = useState(null);
+  const [activeQRGates, setActiveQRGates] = useState([]);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [showCheckOutModal, setShowCheckOutModal] = useState(false);
+  const [checkInTab, setCheckInTab] = useState('demo'); // 'demo' | 'camera' | 'manual'
+  const [manualToken, setManualToken] = useState('');
+  const [checkoutNotes, setCheckoutNotes] = useState('');
+  const [submittingCheckIn, setSubmittingCheckIn] = useState(false);
+  const [submittingCheckOut, setSubmittingCheckOut] = useState(false);
+  const [cameraScannerActive, setCameraScannerActive] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const scannerRef = useRef(null);
 
   // Profile Edit Modal State
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -153,9 +172,53 @@ function DoctorDashboard() {
 
   useEffect(() => {
     loadDashboardData();
+    fetchAttendanceStatus();
   }, []);
 
+  // Fetch doctor attendance status & active hospital QR gates
+  const fetchAttendanceStatus = async () => {
+    try {
+      const [attRes, qrRes] = await Promise.all([
+        getDoctorMyAttendance().catch(() => null),
+        getActiveHospitalQRCodes().catch(() => null),
+      ]);
+      if (attRes?.success) {
+        setAttendanceData(attRes);
+        if (attRes.doctor?.currentPresence) {
+          setCurrentStatus(attRes.doctor.currentPresence);
+        }
+      }
+      if (qrRes?.success && qrRes.qrCodes) {
+        setActiveQRGates(qrRes.qrCodes);
+      }
+    } catch (err) {
+      console.warn('Attendance synchronization notice:', err.message);
+    }
+  };
+
   // Real-time Socket.IO listeners
+  useSocket('doctor_status_changed', (data) => {
+    if (!doctorData?.id || data?.doctorId === doctorData.id) {
+      fetchAttendanceStatus();
+      loadDashboardData();
+    }
+  });
+
+  useSocket('doctor_attendance_updated', (data) => {
+    if (!doctorData?.id || data?.doctorId === doctorData.id) {
+      fetchAttendanceStatus();
+      loadDashboardData();
+    }
+  });
+
+  useSocket('hospital_qr_created', () => {
+    fetchAttendanceStatus();
+  });
+
+  useSocket('hospital_qr_revoked', () => {
+    fetchAttendanceStatus();
+  });
+
   useSocket('appointment_created', (data) => {
     if (!data?.doctorId || data.doctorId === doctorData?.id) {
       loadDashboardData();
@@ -191,6 +254,118 @@ function DoctorDashboard() {
       loadDashboardData();
     }
   });
+
+  // Manage camera QR scanner lifecycle
+  useEffect(() => {
+    if (!showCheckInModal || checkInTab !== 'camera' || !cameraScannerActive) {
+      if (scannerRef.current) {
+        try {
+          scannerRef.current.clear();
+        } catch (e) {
+          // ignore
+        }
+      }
+      return;
+    }
+
+    setCameraError('');
+    const qrScanner = new Html5QrcodeScanner(
+      'doctor-dashboard-qr-scanner',
+      {
+        fps: 10,
+        qrbox: { width: 220, height: 220 },
+        aspectRatio: 1.0,
+      },
+      false
+    );
+
+    qrScanner.render(
+      async (decodedText) => {
+        try {
+          qrScanner.pause();
+        } catch (e) {
+          // ignore
+        }
+        await handleCheckInSubmit(decodedText);
+      },
+      (err) => {
+        // frame drop
+      }
+    );
+
+    scannerRef.current = qrScanner;
+
+    return () => {
+      try {
+        qrScanner.clear();
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, [showCheckInModal, checkInTab, cameraScannerActive]);
+
+  // Doctor QR Check-In Action
+  const handleCheckInSubmit = async (token) => {
+    if (!token || !token.trim()) {
+      setActionMessage({
+        type: 'error',
+        text: 'Please select an active hospital QR gate or provide a valid signed token.',
+      });
+      return;
+    }
+    setSubmittingCheckIn(true);
+    setActionMessage({ type: '', text: '' });
+
+    try {
+      const res = await doctorCheckInQR({ token: token.trim() });
+      if (res && res.success) {
+        setActionMessage({
+          type: 'success',
+          text: `Check-in verified! Welcome Dr. ${doctorData?.user?.name || ''}. Your status is now marked PRESENT.`,
+        });
+        setShowCheckInModal(false);
+        setManualToken('');
+        setCameraScannerActive(false);
+        await Promise.all([fetchAttendanceStatus(), loadDashboardData()]);
+      }
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text:
+          err.response?.data?.message ||
+          err.message ||
+          'Check-in failed. Please verify that the hospital QR code is active and not expired.',
+      });
+    } finally {
+      setSubmittingCheckIn(false);
+    }
+  };
+
+  // Doctor Shift Check-Out Action
+  const handleCheckOutSubmit = async () => {
+    setSubmittingCheckOut(true);
+    setActionMessage({ type: '', text: '' });
+
+    try {
+      const res = await doctorCheckOutQR(checkoutNotes);
+      if (res && res.success) {
+        setActionMessage({
+          type: 'success',
+          text: `Check-out successful! Shift duration: ${res.durationMinutes || 0} minute(s). Status set to OFFLINE (Off Duty).`,
+        });
+        setShowCheckOutModal(false);
+        setCheckoutNotes('');
+        await Promise.all([fetchAttendanceStatus(), loadDashboardData()]);
+      }
+    } catch (err) {
+      setActionMessage({
+        type: 'error',
+        text: err.response?.data?.message || err.message || 'Check-out failed.',
+      });
+    } finally {
+      setSubmittingCheckOut(false);
+    }
+  };
 
   // Quick Presence Status Update Handler
   const handlePresenceChange = async (newStatus) => {
@@ -525,84 +700,201 @@ function DoctorDashboard() {
           />
         </div>
 
-        {/* Live Presence Quick Controls */}
-        <Card className="p-5 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        {/* ============================================================= */}
+        {/* SMART DOCTOR PRESENCE & SHIFT TERMINAL                        */}
+        {/* ============================================================= */}
+        <Card className="p-5 sm:p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
-              <CardTitle>Clinic Presence State Controller</CardTitle>
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🏥</span>
+                <CardTitle>Smart Doctor Presence &amp; Shift Terminal</CardTitle>
+                <Badge
+                  variant={
+                    attendanceData?.isCheckedIn || currentStatus === 'PRESENT' || currentStatus === 'AVAILABLE'
+                      ? 'success'
+                      : currentStatus === 'IN_CONSULTATION' || currentStatus === 'BUSY'
+                      ? 'warning'
+                      : 'neutral'
+                  }
+                  size="xs"
+                  dot
+                  dotPulse={attendanceData?.isCheckedIn}
+                >
+                  {attendanceData?.isCheckedIn ? 'Shift Active: Present' : 'Shift Inactive: Off Duty'}
+                </Badge>
+              </div>
               <p className="text-xs text-slate-500 mt-1">
-                Synchronize your live availability across the hospital directory, patient booking engine, and reception desk.
+                Hospital QR attendance, real-time presence synchronization, and outpatient duty tracking.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Live Status:</span>
-              <Badge
-                variant={
-                  currentStatus === 'PRESENT' || currentStatus === 'AVAILABLE'
-                    ? 'success'
-                    : currentStatus === 'IN_CONSULTATION' || currentStatus === 'BUSY'
-                    ? 'warning'
-                    : 'neutral'
-                }
-                size="sm"
-              >
-                {currentStatus}
-              </Badge>
+
+            {/* Shift Action Buttons */}
+            <div className="flex items-center gap-2.5">
+              {attendanceData?.isCheckedIn ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setShowCheckOutModal(true)}
+                  disabled={submittingCheckOut}
+                  icon={<span>🚪</span>}
+                >
+                  Check Out of Hospital
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    setShowCheckInModal(true);
+                    setCheckInTab('demo');
+                  }}
+                  icon={<span>📷</span>}
+                >
+                  Check In via Hospital QR
+                </Button>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button
-              type="button"
-              disabled={updatingPresence}
-              onClick={() => handlePresenceChange('PRESENT')}
-              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
-                currentStatus === 'PRESENT' || currentStatus === 'AVAILABLE'
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                  : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200'
-              }`}
-            >
-              🟢 AVAILABLE
-            </button>
+          {/* Attendance Session Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Box 1: Status & Doctor Summary */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex items-center gap-3.5">
+              <div
+                className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 shadow-2xs ${
+                  attendanceData?.isCheckedIn
+                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                    : 'bg-slate-200 text-slate-500 border border-slate-300'
+                }`}
+              >
+                {attendanceData?.isCheckedIn ? '👨‍⚕️' : '🚪'}
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Current Presence
+                </span>
+                <strong className="text-sm font-black text-slate-900 block">
+                  {attendanceData?.isCheckedIn ? 'PRESENT / AVAILABLE' : 'OFF DUTY / UNAVAILABLE'}
+                </strong>
+                <p className="text-xs text-slate-500 truncate max-w-[200px]">
+                  Dr. {doctorData?.user?.name || user?.name} &bull; Room {doctorData?.roomNumber || 'Cabin'}
+                </p>
+              </div>
+            </div>
 
-            <button
-              type="button"
-              disabled={updatingPresence}
-              onClick={() => handlePresenceChange('BUSY')}
-              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
-                currentStatus === 'BUSY' || currentStatus === 'IN_CONSULTATION'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                  : 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200'
-              }`}
-            >
-              🟡 IN CONSULTATION
-            </button>
+            {/* Box 2: Check-In Location & Timestamp */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Arrival &amp; Shift Gate
+              </span>
+              {attendanceData?.isCheckedIn && attendanceData?.activeSession ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                    <span>📍</span>
+                    <span className="truncate">{attendanceData.activeSession.location}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    Checked in at{' '}
+                    <strong>
+                      {new Date(attendanceData.activeSession.checkInTime).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </strong>{' '}
+                    &bull; QR Verified
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Not checked in. Please scan hospital QR upon arrival to accept consultations.
+                </p>
+              )}
+            </div>
 
-            <button
-              type="button"
-              disabled={updatingPresence}
-              onClick={() => handlePresenceChange('AWAY')}
-              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
-                currentStatus === 'AWAY'
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                  : 'bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-200'
-              }`}
-            >
-              ⏸️ AWAY (Break)
-            </button>
+            {/* Box 3: Daily Working Hours */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Today&apos;s Clinical Duty Log
+              </span>
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <span className="text-xl font-black text-[#0072CE] font-mono">
+                    {Math.floor((attendanceData?.totalMinutesToday || 0) / 60)}h{' '}
+                    {(attendanceData?.totalMinutesToday || 0) % 60}m
+                  </span>
+                  <span className="text-[11px] text-slate-500 block font-medium">Logged hours today</span>
+                </div>
+                <Badge variant={attendanceData?.isCheckedIn ? 'success' : 'neutral'} size="xs">
+                  {attendanceData?.todaySessions?.length || 0} Shift(s)
+                </Badge>
+              </div>
+            </div>
+          </div>
 
-            <button
-              type="button"
-              disabled={updatingPresence}
-              onClick={() => handlePresenceChange('OFFLINE')}
-              className={`py-3 px-4 rounded-xl border text-xs sm:text-sm font-bold transition cursor-pointer ${
-                currentStatus === 'OFFLINE'
-                  ? 'bg-slate-700 text-white border-slate-700 shadow-xs'
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
-              }`}
-            >
-              ⚪ OFFLINE (Shift End)
-            </button>
+          {/* Quick Clinic Presence State Controller */}
+          <div className="pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-slate-700">
+                Quick Presence Mode Toggle:
+              </span>
+              <span className="text-[11px] text-slate-400">
+                Synchronizes live presence across hospital directory &amp; appointment engine
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <button
+                type="button"
+                disabled={updatingPresence}
+                onClick={() => handlePresenceChange('PRESENT')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  currentStatus === 'PRESENT' || currentStatus === 'AVAILABLE'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                    : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200'
+                }`}
+              >
+                🟢 AVAILABLE
+              </button>
+
+              <button
+                type="button"
+                disabled={updatingPresence}
+                onClick={() => handlePresenceChange('BUSY')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  currentStatus === 'BUSY' || currentStatus === 'IN_CONSULTATION'
+                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                    : 'bg-white hover:bg-amber-50 text-amber-700 border-amber-200'
+                }`}
+              >
+                🟡 IN CONSULTATION
+              </button>
+
+              <button
+                type="button"
+                disabled={updatingPresence}
+                onClick={() => handlePresenceChange('AWAY')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  currentStatus === 'AWAY'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                    : 'bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-200'
+                }`}
+              >
+                ⏸️ AWAY (Break)
+              </button>
+
+              <button
+                type="button"
+                disabled={updatingPresence}
+                onClick={() => handlePresenceChange('OFFLINE')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  currentStatus === 'OFFLINE'
+                    ? 'bg-slate-700 text-white border-slate-700 shadow-xs'
+                    : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                ⚪ OFFLINE (Shift End)
+              </button>
+            </div>
           </div>
         </Card>
 
@@ -1368,6 +1660,212 @@ function DoctorDashboard() {
               </Button>
             </div>
           </form>
+        </Modal>
+
+        {/* Doctor QR Check-In Modal */}
+        <Modal
+          isOpen={showCheckInModal}
+          onClose={() => {
+            setShowCheckInModal(false);
+            setCameraScannerActive(false);
+          }}
+          title="Hospital Doctor QR Attendance Check-In"
+          description="Verify your physical arrival at the hospital to unlock your OPD consultation queue and update live presence."
+        >
+          <div className="space-y-4 text-xs">
+            {/* Tab Navigation */}
+            <div className="flex border-b border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setCheckInTab('demo');
+                  setCameraScannerActive(false);
+                }}
+                className={`py-2 px-3 font-bold border-b-2 transition cursor-pointer text-xs ${
+                  checkInTab === 'demo'
+                    ? 'border-[#0072CE] text-[#0072CE]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                ⚡ 1-Click Verification (Demo / Viva)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCheckInTab('camera');
+                  setCameraScannerActive(true);
+                }}
+                className={`py-2 px-3 font-bold border-b-2 transition cursor-pointer text-xs ${
+                  checkInTab === 'camera'
+                    ? 'border-[#0072CE] text-[#0072CE]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                📷 Camera Scanner
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCheckInTab('manual');
+                  setCameraScannerActive(false);
+                }}
+                className={`py-2 px-3 font-bold border-b-2 transition cursor-pointer text-xs ${
+                  checkInTab === 'manual'
+                    ? 'border-[#0072CE] text-[#0072CE]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                ⌨️ Manual Token
+              </button>
+            </div>
+
+            {/* TAB 1: 1-Click Demo / Active Hospital QR */}
+            {checkInTab === 'demo' && (
+              <div className="space-y-3.5 pt-1">
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 leading-relaxed text-[11px]">
+                  <strong>💡 Student Demonstration / Project Review:</strong> Click below to verify against an active hospital check-in gate without requiring a physical camera scan.
+                </div>
+
+                {activeQRGates.length > 0 ? (
+                  activeQRGates.slice(0, 2).map((gate) => (
+                    <div
+                      key={gate.id}
+                      className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        {gate.qrDataUrl && (
+                          <img
+                            src={gate.qrDataUrl}
+                            alt="Hospital QR Code"
+                            className="w-16 h-16 rounded-lg border border-slate-200 bg-white p-1 shrink-0"
+                          />
+                        )}
+                        <div>
+                          <p className="font-bold text-slate-900 text-xs">{gate.location}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">Code: {gate.code}</p>
+                          <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                            ✓ Active Shift Gate &bull; Expires in {gate.validityMinutes}m
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        disabled={submittingCheckIn}
+                        onClick={() => handleCheckInSubmit(gate.signedToken)}
+                      >
+                        {submittingCheckIn ? 'Verifying...' : '✓ Verify & Check In'}
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    No active hospital QR gates found. Loading active hospital gate...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 2: Camera Scanner */}
+            {checkInTab === 'camera' && (
+              <div className="space-y-3 pt-1">
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-2">
+                  <div id="doctor-dashboard-qr-scanner" className="w-full"></div>
+                </div>
+                {cameraError && (
+                  <p className="text-xs text-rose-600 font-semibold text-center">{cameraError}</p>
+                )}
+                <p className="text-[11px] text-slate-400 text-center">
+                  Align the hospital clinic check-in QR code in front of your camera.
+                </p>
+              </div>
+            )}
+
+            {/* TAB 3: Manual Token Input */}
+            {checkInTab === 'manual' && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleCheckInSubmit(manualToken);
+                }}
+                className="space-y-3 pt-1"
+              >
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase mb-1">
+                    Signed Hospital QR Token
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
+                    placeholder="Paste cryptographic hospital JWT token..."
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-[11px] focus:ring-2 focus:ring-[#0072CE] outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    disabled={submittingCheckIn || !manualToken.trim()}
+                  >
+                    {submittingCheckIn ? 'Validating Token...' : 'Validate & Check In'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </Modal>
+
+        {/* Doctor Shift Check-Out Confirmation Modal */}
+        <Modal
+          isOpen={showCheckOutModal}
+          onClose={() => setShowCheckOutModal(false)}
+          title="Complete Hospital Shift Check-Out"
+          description="Conclude your active consultation shift and update presence across the hospital appointment engine."
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 leading-relaxed text-xs">
+              <p className="font-bold">⚠️ Conclude Active Hospital Duty?</p>
+              <p className="mt-1">
+                Your presence status will be marked <strong>OFF DUTY / OFFLINE</strong>. New appointment slots will not accept walk-in consultations until your next check-in.
+              </p>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 uppercase mb-1">
+                Shift Checkout Notes (Optional)
+              </label>
+              <input
+                type="text"
+                value={checkoutNotes}
+                onChange={(e) => setCheckoutNotes(e.target.value)}
+                placeholder="e.g. Concluded OPD morning consultations, handed over emergencies."
+                className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#0072CE] outline-none"
+              />
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCheckOutModal(false)}
+                disabled={submittingCheckOut}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleCheckOutSubmit}
+                disabled={submittingCheckOut}
+              >
+                {submittingCheckOut ? 'Checking Out...' : 'Confirm Shift Check-Out'}
+              </Button>
+            </div>
+          </div>
         </Modal>
       </main>
 

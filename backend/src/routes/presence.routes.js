@@ -32,8 +32,8 @@ router.post('/qr/generate', authenticateUser, authorizeRoles('ADMIN'), generateH
 // Admin: Revoke hospital attendance QR code
 router.post('/qr/revoke', authenticateUser, authorizeRoles('ADMIN'), revokeHospitalQR);
 
-// Admin: List active hospital attendance QR codes
-router.get('/qr/active', authenticateUser, authorizeRoles('ADMIN'), getActiveHospitalQRCodes);
+// Admin & Doctor: List active hospital attendance QR codes
+router.get('/qr/active', authenticateUser, authorizeRoles('ADMIN', 'DOCTOR'), getActiveHospitalQRCodes);
 
 // Admin: View all QR scan audit logs (success, expired, rejected, unauthorized)
 router.get('/qr/scans', authenticateUser, authorizeRoles('ADMIN'), getQRScanActivity);

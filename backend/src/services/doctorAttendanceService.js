@@ -137,11 +137,11 @@ const revokeHospitalQR = async ({ codeId, adminUser }) => {
 };
 
 /**
- * 3. Admin: Fetch Active Hospital QR Codes
+ * 3. Admin & Doctor: Fetch Active Hospital QR Codes
  */
 const getActiveHospitalQRCodes = async () => {
   const now = new Date();
-  const qrs = await prisma.hospitalQRCode.findMany({
+  let qrs = await prisma.hospitalQRCode.findMany({
     where: {
       isActive: true,
       expiresAt: { gt: now },
@@ -157,17 +157,66 @@ const getActiveHospitalQRCodes = async () => {
     orderBy: { createdAt: 'desc' },
   });
 
-  return qrs.map((qr) => ({
-    id: qr.id,
-    code: qr.code,
-    location: qr.location,
-    validityMinutes: qr.validityMinutes,
-    expiresAt: qr.expiresAt,
-    createdAt: qr.createdAt,
-    isActive: qr.isActive,
-    totalCheckIns: qr._count.attendances,
-    totalScans: qr._count.scanEvents,
-  }));
+  // Auto-provision an active hospital OPD gate if none exists or all expired
+  if (qrs.length === 0) {
+    try {
+      const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
+      const adminId = admin ? admin.id : 'system-admin';
+      await generateHospitalQR({
+        location: 'Main Hospital OPD Suite - Ground Floor',
+        validityMinutes: 480, // 8-hour shift coverage
+        adminUser: { id: adminId },
+      });
+
+      qrs = await prisma.hospitalQRCode.findMany({
+        where: {
+          isActive: true,
+          expiresAt: { gt: now },
+        },
+        include: {
+          _count: {
+            select: {
+              attendances: true,
+              scanEvents: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (provisionErr) {
+      console.warn('Notice: Auto-provisioning active hospital QR code skipped:', provisionErr.message);
+    }
+  }
+
+  return Promise.all(
+    qrs.map(async (qr) => {
+      let qrDataUrl = null;
+      try {
+        qrDataUrl = await QRCode.toDataURL(qr.signedToken, {
+          errorCorrectionLevel: 'H',
+          margin: 2,
+          width: 280,
+          color: { dark: '#0f172a', light: '#ffffff' },
+        });
+      } catch (qrErr) {
+        // QR rendering failure fallback
+      }
+
+      return {
+        id: qr.id,
+        code: qr.code,
+        location: qr.location,
+        validityMinutes: qr.validityMinutes,
+        expiresAt: qr.expiresAt,
+        createdAt: qr.createdAt,
+        isActive: qr.isActive,
+        totalCheckIns: qr._count?.attendances || 0,
+        totalScans: qr._count?.scanEvents || 0,
+        signedToken: qr.signedToken,
+        qrDataUrl,
+      };
+    })
+  );
 };
 
 /**

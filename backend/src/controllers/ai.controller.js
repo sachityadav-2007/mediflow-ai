@@ -401,6 +401,60 @@ const recommendSpecialty = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/ai/admin/generate-dev-dataset
+ * Admin endpoint: Generates and verifies isolated development benchmark datasets.
+ */
+const generateDevDataset = async (req, res) => {
+  try {
+    if (req.user?.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Administrator privileges required.',
+      });
+    }
+
+    const result = await aiService.generateDevDataset();
+    return res.status(200).json({
+      success: true,
+      result,
+    });
+  } catch (error) {
+    console.error('Error in generateDevDataset:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to generate development datasets.',
+    });
+  }
+};
+
+/**
+ * GET /api/ai/admin/dev-dataset-status
+ * Admin endpoint: Checks availability and metadata of isolated development datasets.
+ */
+const getDevDatasetStatus = async (req, res) => {
+  try {
+    if (req.user?.role !== 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Administrator privileges required.',
+      });
+    }
+
+    const status = await aiService.getDevDatasetStatus();
+    return res.status(200).json({
+      success: true,
+      status,
+    });
+  } catch (error) {
+    console.error('Error in getDevDatasetStatus:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retrieve development dataset status.',
+    });
+  }
+};
+
 module.exports = {
   getDoctorAvailability,
   getAppointmentDemand,
@@ -414,6 +468,8 @@ module.exports = {
   getAdminModelEvaluation,
   getDataQualityAudit,
   triggerModelRetraining,
+  generateDevDataset,
+  getDevDatasetStatus,
   recommendSpecialty,
 };
 

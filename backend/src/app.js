@@ -60,4 +60,25 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/check-in', checkInRoutes);
 app.use('/api/triage', triageRoutes);
 
+// Catch-all 404 handler for unmapped routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Endpoint not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// Centralized JSON error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err.message);
+  const status = err.status || 500;
+  res.status(status).json({
+    success: false,
+    message:
+      process.env.NODE_ENV === 'production' && status === 500
+        ? 'Internal server error.'
+        : err.message || 'An unexpected error occurred.',
+  });
+});
+
 module.exports = app;

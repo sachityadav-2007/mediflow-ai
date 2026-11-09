@@ -134,6 +134,12 @@ class DataQualityService:
         results["patient_waiting_time"] = ModelDataQualityResult(
             model_name="patient_waiting_time",
             status=wt_status,
+            production_status="PRODUCTION_VALIDATED" if wt_status == "READY_FOR_TRAINING" else "INSUFFICIENT_PRODUCTION_DATA",
+            development_status="DEVELOPMENT_MODEL_AVAILABLE",
+            training_readiness="READY_FOR_TRAINING" if wt_status == "READY_FOR_TRAINING" else "TRAINING_REQUIRED",
+            data_provenance="PRODUCTION_HEALTHCARE_DATA",
+            required_sample_count=req_wt.min_labelled_samples,
+            readiness_percentage=min(100.0, round((valid_waiting / max(1, req_wt.min_labelled_samples)) * 100, 1)),
             total_records=total_appts,
             valid_labelled_records=valid_waiting,
             missing_label_percentage=missing_waiting_pct,
@@ -194,6 +200,12 @@ class DataQualityService:
         results["doctor_availability_and_delay"] = ModelDataQualityResult(
             model_name="doctor_availability_and_delay",
             status=da_status,
+            production_status="PRODUCTION_VALIDATED" if da_status == "READY_FOR_TRAINING" else "INSUFFICIENT_PRODUCTION_DATA",
+            development_status="DEVELOPMENT_MODEL_AVAILABLE",
+            training_readiness="READY_FOR_TRAINING" if da_status == "READY_FOR_TRAINING" else "TRAINING_REQUIRED",
+            data_provenance="PRODUCTION_HEALTHCARE_DATA",
+            required_sample_count=req_da.min_labelled_samples,
+            readiness_percentage=min(100.0, round((valid_att / max(1, req_da.min_labelled_samples)) * 100, 1)),
             total_records=total_att,
             valid_labelled_records=valid_att,
             missing_label_percentage=round(((total_att - valid_att) / max(1, total_att)) * 100, 1),
@@ -258,6 +270,12 @@ class DataQualityService:
         results["appointment_duration"] = ModelDataQualityResult(
             model_name="appointment_duration",
             status=dur_status,
+            production_status="PRODUCTION_VALIDATED" if dur_status == "READY_FOR_TRAINING" else "INSUFFICIENT_PRODUCTION_DATA",
+            development_status="DEVELOPMENT_MODEL_AVAILABLE",
+            training_readiness="READY_FOR_TRAINING" if dur_status == "READY_FOR_TRAINING" else "TRAINING_REQUIRED",
+            data_provenance="PRODUCTION_HEALTHCARE_DATA",
+            required_sample_count=req_dur.min_labelled_samples,
+            readiness_percentage=min(100.0, round((valid_dur / max(1, req_dur.min_labelled_samples)) * 100, 1)),
             total_records=total_appts,
             valid_labelled_records=valid_dur,
             missing_label_percentage=round(((total_appts - valid_dur) / max(1, total_appts)) * 100, 1),
@@ -311,6 +329,12 @@ class DataQualityService:
         results["department_demand_forecast"] = ModelDataQualityResult(
             model_name="department_demand_forecast",
             status=dem_status,
+            production_status="PRODUCTION_VALIDATED" if dem_status == "READY_FOR_TRAINING" else "INSUFFICIENT_PRODUCTION_DATA",
+            development_status="DEVELOPMENT_MODEL_AVAILABLE",
+            training_readiness="READY_FOR_TRAINING" if dem_status == "READY_FOR_TRAINING" else "TRAINING_REQUIRED",
+            data_provenance="PRODUCTION_HEALTHCARE_DATA",
+            required_sample_count=req_dem.min_labelled_samples,
+            readiness_percentage=min(100.0, round((calendar_days_span / max(1, req_dem.min_labelled_samples)) * 100, 1)),
             total_records=total_appts,
             valid_labelled_records=calendar_days_span,
             missing_label_percentage=0.0,
@@ -329,10 +353,17 @@ class DataQualityService:
 
         if all_ready:
             sys_status = "READY_FOR_TRAINING"
+            sys_prod_status = "PRODUCTION_VALIDATED"
         elif any_issues:
             sys_status = "DATA_QUALITY_ISSUES"
+            sys_prod_status = "INSUFFICIENT_PRODUCTION_DATA"
         else:
             sys_status = "INSUFFICIENT_DATA"
+            sys_prod_status = "INSUFFICIENT_PRODUCTION_DATA"
+
+        total_valid = sum(r.valid_labelled_records for r in results.values())
+        total_required = sum(r.required_sample_count for r in results.values())
+        overall_readiness = round((total_valid / max(1, total_required)) * 100, 1)
 
         notice = (
             "MediFlow AI 2.0 Governance Notice: Real clinical model retraining is gated by minimum data completeness thresholds. "
@@ -341,6 +372,11 @@ class DataQualityService:
 
         return DataQualityAuditResponse(
             system_status=sys_status,
+            system_production_status=sys_prod_status,
+            system_development_status="DEVELOPMENT_MODEL_AVAILABLE",
+            total_valid_production_records=total_valid,
+            total_required_production_records=total_required,
+            overall_production_readiness_percentage=overall_readiness,
             audit_timestamp=now_str,
             models=results,
             can_retrain_production=all_ready,

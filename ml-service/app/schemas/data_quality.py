@@ -16,6 +16,12 @@ class DataQualityRequirement(BaseModel):
 class ModelDataQualityResult(BaseModel):
     model_name: str
     status: str = Field(..., description="'READY_FOR_TRAINING' | 'INSUFFICIENT_DATA' | 'DATA_QUALITY_ISSUES'")
+    production_status: str = Field("INSUFFICIENT_PRODUCTION_DATA", description="'INSUFFICIENT_PRODUCTION_DATA' | 'PRODUCTION_VALIDATED'")
+    development_status: str = Field("DEVELOPMENT_MODEL_AVAILABLE", description="'DEVELOPMENT_MODEL_AVAILABLE' | 'TRAINING_REQUIRED'")
+    training_readiness: str = Field("TRAINING_REQUIRED", description="'READY_FOR_TRAINING' | 'TRAINING_REQUIRED'")
+    data_provenance: str = Field("PRODUCTION_HEALTHCARE_DATA", description="Source of audited data")
+    required_sample_count: int = Field(100, description="Minimum statistical samples required for production validation")
+    readiness_percentage: float = Field(0.0, description="Percentage of required production samples collected")
     total_records: int
     valid_labelled_records: int
     missing_label_percentage: float
@@ -34,6 +40,11 @@ class DataQualityAuditRequest(BaseModel):
 
 class DataQualityAuditResponse(BaseModel):
     system_status: str = Field(..., description="'READY_FOR_TRAINING' | 'INSUFFICIENT_DATA' | 'DATA_QUALITY_ISSUES'")
+    system_production_status: str = Field("INSUFFICIENT_PRODUCTION_DATA", description="Clinical production readiness status")
+    system_development_status: str = Field("DEVELOPMENT_MODEL_AVAILABLE", description="Offline development benchmark model availability")
+    total_valid_production_records: int = 0
+    total_required_production_records: int = 360
+    overall_production_readiness_percentage: float = 0.0
     audit_timestamp: str
     models: Dict[str, ModelDataQualityResult]
     can_retrain_production: bool
@@ -53,4 +64,17 @@ class RetrainResponse(BaseModel):
     new_version: Optional[str] = None
     data_source_used: str
     evaluation_summary: Optional[Dict[str, Any]] = None
+
+class DevDatasetGenerateResponse(BaseModel):
+    success: bool
+    message: str
+    manifest_path: str
+    datasets_generated: Dict[str, Any]
+    validation_status: str
+
+class DevDatasetStatusResponse(BaseModel):
+    status: str
+    is_available: bool
+    manifest: Optional[Dict[str, Any]] = None
+    datasets: Optional[Dict[str, Any]] = None
 

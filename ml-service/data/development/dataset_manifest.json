@@ -1,0 +1,110 @@
+{
+  "pipeline_version": "2.0.0-dev",
+  "pipeline_mode": "DEVELOPMENT_BENCHMARK",
+  "data_provenance": "SYNTHETIC_DEVELOPMENT_PIPELINE",
+  "is_synthetic": true,
+  "is_production": false,
+  "compliance_notice": "NOTICE: Strictly isolated development & testing dataset. Must never be represented as real patient records or mixed into PostgreSQL production tables.",
+  "random_seed": 42,
+  "generated_at": "2026-11-08T09:53:20.150161+00:00Z",
+  "datasets": {
+    "patient_waiting_time": {
+      "file": "dev_waiting_time.csv",
+      "sample_count": 1000,
+      "features": [
+        "appointment_id",
+        "timestamp",
+        "doctor_id",
+        "department",
+        "day_of_week",
+        "hour_of_day",
+        "queue_length_ahead",
+        "priority_level",
+        "actual_waiting_time_minutes",
+        "dataset_provenance"
+      ],
+      "target": "actual_waiting_time_minutes"
+    },
+    "doctor_availability_and_delay": {
+      "file": "dev_doctor_availability.csv",
+      "sample_count": 1000,
+      "features": [
+        "record_id",
+        "timestamp",
+        "doctor_id",
+        "department",
+        "day_of_week",
+        "hour_of_day",
+        "is_available",
+        "is_delayed",
+        "dataset_provenance"
+      ],
+      "target": [
+        "is_available",
+        "is_delayed"
+      ]
+    },
+    "appointment_duration": {
+      "file": "dev_appointment_duration.csv",
+      "sample_count": 1000,
+      "features": [
+        "appointment_id",
+        "timestamp",
+        "doctor_id",
+        "department",
+        "day_of_week",
+        "hour_of_day",
+        "priority_level",
+        "actual_duration_minutes",
+        "dataset_provenance"
+      ],
+      "target": "actual_duration_minutes"
+    },
+    "department_demand_forecast": {
+      "file": "dev_department_demand.csv",
+      "sample_count": 1080,
+      "features": [
+        "date",
+        "timestamp",
+        "department",
+        "day_of_week",
+        "day_of_month",
+        "month",
+        "is_weekend",
+        "appointment_count",
+        "dataset_provenance"
+      ],
+      "target": "appointment_count"
+    }
+  },
+  "total_development_records": 4080,
+  "clinical_correlation_validations": {
+    "waiting_time": {
+      "queue_correlation": 0.952,
+      "queue_correlation_valid": true,
+      "emergency_mean_wait": 31.9,
+      "low_priority_mean_wait": 45.7,
+      "priority_triage_valid": true
+    },
+    "doctor_availability": {
+      "overall_presence_rate": 0.875,
+      "presence_rate_valid": true,
+      "monday_presence_rate": 0.827,
+      "other_days_presence_rate": 0.882,
+      "delay_rate": 0.178
+    },
+    "appointment_duration": {
+      "oncology_mean_duration": 31.8,
+      "dermatology_mean_duration": 13.4,
+      "specialty_variance_valid": true,
+      "overall_mean_duration": 22.1
+    },
+    "department_demand": {
+      "weekend_mean_volume": 6.6,
+      "weekday_mean_volume": 19.6,
+      "weekend_drop_valid": true,
+      "total_days_span": 120
+    },
+    "all_clinical_checks_passed": true
+  }
+}

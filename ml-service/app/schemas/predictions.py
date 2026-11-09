@@ -24,6 +24,9 @@ class ModelEvaluationMetrics(BaseModel):
 
 class WaitingTimeResponse(BaseModel):
     predicted_wait_minutes: Optional[float] = None
+    confidence_range_minutes: Optional[List[float]] = None
+    feature_contributions: Optional[Dict[str, float]] = None
+    model_mode: str = "DEVELOPMENT_BENCHMARK"
     model_version: Optional[str] = None
     status: str = Field(..., description="'available' | 'insufficient_data' | 'baseline_heuristic' | 'error'")
     explanation: List[str] = []
@@ -43,6 +46,10 @@ class DoctorAvailabilityRequest(BaseModel):
 class DoctorAvailabilityResponse(BaseModel):
     availability_probability: Optional[float] = None
     delay_probability: Optional[float] = None
+    confidence_level: Optional[str] = None
+    risk_assessment: Optional[str] = None
+    feature_contributions: Optional[Dict[str, Any]] = None
+    model_mode: str = "DEVELOPMENT_BENCHMARK"
     status: str = Field(..., description="'available' | 'insufficient_data' | 'baseline_heuristic' | 'error'")
     model_version: Optional[str] = None
     explanation: List[str] = []
@@ -60,6 +67,9 @@ class AppointmentDurationRequest(BaseModel):
 
 class AppointmentDurationResponse(BaseModel):
     predicted_duration_minutes: Optional[float] = None
+    expected_range_minutes: Optional[List[float]] = None
+    feature_contributions: Optional[Dict[str, Any]] = None
+    model_mode: str = "DEVELOPMENT_BENCHMARK"
     model_version: Optional[str] = None
     status: str = Field(..., description="'available' | 'insufficient_data' | 'baseline_heuristic' | 'error'")
     explanation: List[str] = []
@@ -81,6 +91,9 @@ class DailyDemandPoint(BaseModel):
 
 class DepartmentDemandResponse(BaseModel):
     department: str
+    weekly_total_predicted_appointments: Optional[float] = None
+    peak_day: Optional[str] = None
+    model_mode: str = "DEVELOPMENT_BENCHMARK"
     forecast: List[DailyDemandPoint] = []
     model_version: Optional[str] = None
     status: str = Field(..., description="'available' | 'insufficient_data' | 'baseline_heuristic' | 'error'")

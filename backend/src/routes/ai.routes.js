@@ -12,6 +12,8 @@ const {
   getAdminModelEvaluation,
   getDataQualityAudit,
   triggerModelRetraining,
+  generateDevDataset,
+  getDevDatasetStatus,
   recommendSpecialty,
 } = require('../controllers/ai.controller');
 const {
@@ -114,7 +116,29 @@ router.post(
 );
 
 /**
- * 13. AI Health Navigation & Specialty Recommendation
+ * 13. Generate Isolated Development Benchmark Datasets (Admin only)
+ * POST /api/ai/admin/generate-dev-dataset
+ */
+router.post(
+  '/admin/generate-dev-dataset',
+  authenticateUser,
+  authorizeRoles('ADMIN'),
+  generateDevDataset
+);
+
+/**
+ * 14. Query Development Dataset Pipeline Status (Admin only)
+ * GET /api/ai/admin/dev-dataset-status
+ */
+router.get(
+  '/admin/dev-dataset-status',
+  authenticateUser,
+  authorizeRoles('ADMIN'),
+  getDevDatasetStatus
+);
+
+/**
+ * 15. AI Health Navigation & Specialty Recommendation
  * POST /api/ai/specialty-recommendation
  */
 router.post(

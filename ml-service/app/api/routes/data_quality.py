@@ -10,9 +10,11 @@ from app.services.data_quality_service import data_quality_service
 from app.services.predictor_service import predictor_service
 from app.schemas.data_quality import (
     DataQualityAuditRequest, DataQualityAuditResponse,
-    RetrainRequest, RetrainResponse
+    RetrainRequest, RetrainResponse,
+    DevDatasetGenerateResponse, DevDatasetStatusResponse
 )
 from training.train_all import train_all_models
+from training.dev_pipeline import generate_and_save_dev_datasets, get_dev_dataset_status
 
 router = APIRouter(prefix="/data-quality", tags=["Data Quality & Retraining"], dependencies=[Depends(verify_internal_token)])
 
@@ -95,4 +97,40 @@ async def trigger_controlled_retraining(request: RetrainRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Retraining pipeline failure: {str(e)}"
         )
+
+@router.post("/generate-dev-dataset", response_model=DevDatasetGenerateResponse)
+async def generate_development_dataset():
+    """
+    Generates and validates reproducible development benchmark datasets.
+    Stores CSVs and metadata manifest in 'ml-service/data/development/'
+    completely isolated from PostgreSQL production records.
+    """
+    try:
+        res = generate_and_save_dev_datasets()
+        return DevDatasetGenerateResponse(
+            success=True,
+            message="Development benchmark datasets successfully generated and clinically verified.",
+            manifest_path=res["manifest_path"],
+            datasets_generated=res["datasets_generated"],
+            validation_status="ALL_CLINICAL_CHECKS_PASSED" if res["validations"].get("all_clinical_checks_passed") else "CHECK_WARNINGS"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate development dataset: {str(e)}"
+        )
+
+@router.get("/dev-dataset-status", response_model=DevDatasetStatusResponse)
+async def check_development_dataset_status():
+    """
+    Returns the availability, record count, and clinical validation status of the
+    isolated local development benchmark datasets.
+    """
+    status_info = get_dev_dataset_status()
+    return DevDatasetStatusResponse(
+        status=status_info["status"],
+        is_available=status_info["is_available"],
+        manifest=status_info.get("manifest"),
+        datasets=status_info.get("manifest", {}).get("datasets") if status_info.get("manifest") else None
+    )
 

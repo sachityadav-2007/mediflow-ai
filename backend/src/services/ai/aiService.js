@@ -419,6 +419,14 @@ const getSpecialtyRecommendation = async (symptoms) => {
   return await recommendMedicalSpecialty(symptoms);
 };
 
+const generateDevDataset = async () => {
+  return await mlServiceClient.generateDevDataset();
+};
+
+const getDevDatasetStatus = async () => {
+  return await mlServiceClient.getDevDatasetStatus();
+};
+
 module.exports = {
   getAvailability,
   getDemand,
@@ -431,6 +439,8 @@ module.exports = {
   getModelEvaluation,
   getDataQualityAudit,
   triggerRetraining,
+  generateDevDataset,
+  getDevDatasetStatus,
   getSpecialtyRecommendation,
   clearCache,
 };

@@ -402,6 +402,18 @@ export const triggerMLRetraining = async (data = {}) => {
   return response.data;
 };
 
+// Admin: Query status of isolated development benchmark datasets
+export const getDevDatasetStatus = async () => {
+  const response = await api.get('/api/ai/admin/dev-dataset-status');
+  return response.data;
+};
+
+// Admin: Generate and verify isolated development benchmark datasets
+export const generateDevDataset = async () => {
+  const response = await api.post('/api/ai/admin/generate-dev-dataset');
+  return response.data;
+};
+
 // General / Doctor: Predict expected consultation duration
 export const getMLAppointmentDuration = async (params = {}) => {
   const response = await api.get('/api/ai/appointment-duration', { params });

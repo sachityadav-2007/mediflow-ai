@@ -247,6 +247,28 @@ class MLServiceClient {
   async triggerRetraining(payload) {
     return await this._request('POST', '/data-quality/retrain', payload);
   }
+
+  /**
+   * 11. Generate Isolated Development Benchmark Datasets
+   */
+  async generateDevDataset() {
+    return await this._request('POST', '/data-quality/generate-dev-dataset');
+  }
+
+  /**
+   * 12. Query Development Dataset Status & Manifest
+   */
+  async getDevDatasetStatus() {
+    try {
+      return await this._request('GET', '/data-quality/dev-dataset-status');
+    } catch (err) {
+      return {
+        status: 'unavailable',
+        is_available: false,
+        error: err.message,
+      };
+    }
+  }
 }
 
 module.exports = new MLServiceClient();

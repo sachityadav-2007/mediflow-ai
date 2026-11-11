@@ -189,15 +189,27 @@ async function runNotificationAudit() {
   const dd = String(testDateObj.getDate()).padStart(2, '0');
   const testDate = `${yyyy}-${mm}-${dd}`;
 
-  // Fetch available slots
-  const slotsRes = await fetch(`${BACKEND_URL}/api/appointments/slots/${targetDoc.id}?date=${testDate}`, {
-    headers: { Cookie: patient.cookie },
-  });
+  // Fetch available slots and patient's existing appointments to avoid pre-existing slot conflict
+  const [slotsRes, myApptsRes] = await Promise.all([
+    fetch(`${BACKEND_URL}/api/appointments/slots/${targetDoc.id}?date=${testDate}`, {
+      headers: { Cookie: patient.cookie },
+    }),
+    fetch(`${BACKEND_URL}/api/appointments/my`, {
+      headers: { Cookie: patient.cookie },
+    }),
+  ]);
   assert(slotsRes.ok, 'Fetched open slots for appointment booking');
   const slotsData = await slotsRes.json();
   const availableSlots = slotsData.slots || slotsData.data?.slots || [];
   assert(availableSlots.length > 0, `Available consultation slots found on ${testDate}: ${availableSlots.length} slots`);
-  const chosenSlot = availableSlots[0];
+
+  const myApptsData = myApptsRes.ok ? await myApptsRes.json() : {};
+  const myExistingTimes = new Set(
+    (myApptsData.appointments || myApptsData.data || [])
+      .filter((a) => !['CANCELLED', 'NO_SHOW'].includes(a.status) && String(a.appointmentDate).startsWith(testDate))
+      .map((a) => a.slot?.startTime)
+  );
+  const chosenSlot = availableSlots.find((s) => !myExistingTimes.has(s.startTime)) || availableSlots[0];
 
   // Reset tracking variables before booking
   patientReceivedNotification = null;
@@ -363,6 +375,31 @@ async function runNotificationAudit() {
   });
   const finalCountData = await finalCountRes.json();
   assert(finalCountData.unreadCount === 0, 'Unread count verified as 0 via /api/notifications/unread-count');
+
+  // Verify appointment cancellation notification & clean up test slot
+  patientReceivedNotification = null;
+  doctorReceivedNotification = null;
+  const cancelRes = await fetch(`${BACKEND_URL}/api/appointments/${appointment.id}/cancel`, {
+    method: 'PUT',
+    headers: { Cookie: patient.cookie },
+  });
+  assert(cancelRes.ok, 'Test appointment cancelled cleanly during verification teardown');
+  await new Promise((r) => setTimeout(r, 400));
+  assert(
+    patientReceivedNotification?.type === 'APPOINTMENT_CANCELLED' &&
+      doctorReceivedNotification?.type === 'APPOINTMENT_CANCELLED',
+    'Patient and Doctor received real-time APPOINTMENT_CANCELLED notifications'
+  );
+
+  // Restore clean patient unread count and doctor shift status
+  await fetch(`${BACKEND_URL}/api/notifications/read-all`, {
+    method: 'PATCH',
+    headers: { Cookie: patient.cookie },
+  });
+  await fetch(`${BACKEND_URL}/api/presence/qr/check-out`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: doctor.cookie },
+  });
 
   // Clean up sockets
   patientSocket.disconnect();

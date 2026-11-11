@@ -18,11 +18,11 @@ router.get('/', getNotifications);
 // 2. Fetch unread count badge
 router.get('/unread-count', getUnreadCount);
 
-// 3. Mark single notification as read
-router.patch('/:id/read', markRead);
-
-// 4. Mark all notifications as read
+// 3. Mark all notifications as read
 router.patch('/read-all', markAllRead);
+
+// 4. Mark single notification as read
+router.patch('/:id/read', markRead);
 
 module.exports = router;
 

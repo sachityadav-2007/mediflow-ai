@@ -12,6 +12,7 @@ const adminRoutes = require('./routes/admin.routes');
 const aiRoutes = require('./routes/ai.routes');
 const checkInRoutes = require('./routes/checkIn.routes');
 const triageRoutes = require('./routes/triage.routes');
+const notificationRoutes = require('./routes/notification.routes');
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/check-in', checkInRoutes);
 app.use('/api/triage', triageRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Catch-all 404 handler for unmapped routes
 app.use((req, res) => {

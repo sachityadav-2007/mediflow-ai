@@ -1,5 +1,6 @@
 const prisma = require('../config/db');
 const { getIO } = require('../config/socket');
+const { createNotification } = require('./notificationService');
 const { smartAllocateSlot } = require('./allocationService');
 const { clearCache } = require('./ai/aiService');
 const {
@@ -455,6 +456,49 @@ const bookAppointment = async ({
     io.emit('ai_forecast_updated', { type: 'APPOINTMENT_CREATED', doctorId: appointment.doctorId });
   }
 
+  // Real-Time In-App Notifications
+  try {
+    const patientUserId = appointment.patient?.user?.id || appointment.patient?.userId;
+    const doctorUserId = appointment.doctor?.user?.id || appointment.doctor?.userId;
+    const doctorName = appointment.doctor?.user?.name || 'Doctor';
+    const patientName = appointment.patient?.user?.name || 'Patient';
+    const slotTime = `${appointment.slot?.startTime} - ${appointment.slot?.endTime}`;
+
+    if (patientUserId) {
+      createNotification({
+        userId: patientUserId,
+        type: 'APPOINTMENT_BOOKED',
+        title: 'Appointment Confirmed',
+        message: `Your appointment with Dr. ${doctorName} is confirmed for ${date} at ${slotTime}. (${appointment.appointmentNumber})`,
+        metadata: {
+          appointmentId: appointment.id,
+          appointmentNumber: appointment.appointmentNumber,
+          doctorId: appointment.doctorId,
+          date,
+          slotTime,
+        },
+      }).catch((err) => console.warn('Patient booking notification notice:', err.message));
+    }
+
+    if (doctorUserId) {
+      createNotification({
+        userId: doctorUserId,
+        type: 'APPOINTMENT_BOOKED',
+        title: 'New Consultation Booked',
+        message: `New appointment booked by ${patientName} for ${date} at ${slotTime}. (${appointment.appointmentNumber})`,
+        metadata: {
+          appointmentId: appointment.id,
+          appointmentNumber: appointment.appointmentNumber,
+          patientId: appointment.patientId,
+          date,
+          slotTime,
+        },
+      }).catch((err) => console.warn('Doctor booking notification notice:', err.message));
+    }
+  } catch (notifErr) {
+    console.warn('Booking notification dispatch skipped:', notifErr.message);
+  }
+
   // Phase 11: Send asynchronous booking confirmation email
   sendBookingConfirmationEmail({
     to: appointment.patient?.user?.email,
@@ -673,6 +717,43 @@ const cancelAppointment = async (appointmentId, user) => {
     });
     clearCache();
     io.emit('ai_forecast_updated', { type: 'APPOINTMENT_CANCELLED', doctorId: updatedAppointment.doctorId });
+  }
+
+  // Real-Time In-App Cancellation Notification
+  try {
+    const patientUserId = updatedAppointment.patient?.user?.id || updatedAppointment.patient?.userId;
+    const doctorUserId = updatedAppointment.doctor?.user?.id || updatedAppointment.doctor?.userId;
+    const dateStr = appointment.appointmentDate.toISOString().split('T')[0];
+
+    if (patientUserId) {
+      createNotification({
+        userId: patientUserId,
+        type: 'APPOINTMENT_CANCELLED',
+        title: 'Appointment Cancelled',
+        message: `Your appointment with Dr. ${updatedAppointment.doctor?.user?.name || 'Doctor'} on ${dateStr} has been cancelled.`,
+        metadata: {
+          appointmentId: updatedAppointment.id,
+          appointmentNumber: updatedAppointment.appointmentNumber,
+          doctorId: updatedAppointment.doctorId,
+        },
+      }).catch((err) => console.warn('Patient cancellation notification notice:', err.message));
+    }
+
+    if (doctorUserId) {
+      createNotification({
+        userId: doctorUserId,
+        type: 'APPOINTMENT_CANCELLED',
+        title: 'Appointment Cancelled',
+        message: `Appointment ${updatedAppointment.appointmentNumber} with ${updatedAppointment.patient?.user?.name || 'Patient'} on ${dateStr} was cancelled.`,
+        metadata: {
+          appointmentId: updatedAppointment.id,
+          appointmentNumber: updatedAppointment.appointmentNumber,
+          patientId: updatedAppointment.patientId,
+        },
+      }).catch((err) => console.warn('Doctor cancellation notification notice:', err.message));
+    }
+  } catch (notifErr) {
+    console.warn('Cancellation notification dispatch skipped:', notifErr.message);
   }
 
   const oldDateStr = appointment.appointmentDate.toISOString().split('T')[0];

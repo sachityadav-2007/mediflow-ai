@@ -93,23 +93,36 @@ enum WaitlistStatus {
   CANCELLED
 }
 
+enum NotificationType {
+  APPOINTMENT_BOOKED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  DOCTOR_CHECK_IN
+  DOCTOR_CHECK_OUT
+  WAITLIST_ALLOCATED
+  SYSTEM_ALERT
+}
+
 // -----------------------------------------------------------------------------
 // MODEL 1: USER
 // Central authentication and profile record
 // -----------------------------------------------------------------------------
 model User {
-  id             String    @id @default(uuid())
+  id             String         @id @default(uuid())
   name           String
-  email          String    @unique
+  email          String         @unique
   password       String
-  role           Role      @default(PATIENT)
+  role           Role           @default(PATIENT)
   phone          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   // 1-to-1 profile relations
   doctorProfile  Doctor?
   patientProfile Patient?
+
+  // Notifications
+  notifications  Notification[]
 
   @@map("users")
 }
@@ -402,4 +415,26 @@ model TriageHistory {
 
   @@index([patientId, createdAt])
   @@map("triage_histories")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 14: NOTIFICATION
+// Persistent real-time notifications for patients, doctors, and hospital admins
+// -----------------------------------------------------------------------------
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM_ALERT)
+  title     String
+  message   String           @db.Text
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

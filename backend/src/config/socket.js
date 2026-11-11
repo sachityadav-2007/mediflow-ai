@@ -27,9 +27,20 @@ function initSocket(server) {
 
   ioInstance.on('connection', (socket) => {
     // Authenticated Room Subscriptions for privacy isolation
-    socket.on('join_user', (userId) => {
+    socket.on('join_user', (data) => {
+      const userId = typeof data === 'object' && data !== null ? data.userId : data;
+      const role = typeof data === 'object' && data !== null ? data.role : null;
       if (userId) {
         socket.join(`user_${userId}`);
+      }
+      if (role) {
+        socket.join(`role_${String(role).toLowerCase()}`);
+      }
+    });
+
+    socket.on('join_role', (role) => {
+      if (role) {
+        socket.join(`role_${String(role).toLowerCase()}`);
       }
     });
 

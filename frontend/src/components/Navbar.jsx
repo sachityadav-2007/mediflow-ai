@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Badge from './ui/Badge';
+import NotificationBell from './NotificationBell';
 
 function Navbar() {
   const { user, logout } = useAuth();
@@ -300,6 +301,7 @@ function Navbar() {
             {/* User Profile / Auth State */}
             {user ? (
               <div className="flex items-center gap-2.5 pl-3 border-l border-slate-200">
+                <NotificationBell />
                 <Link
                   to={getDashboardPath(user.role)}
                   className="flex items-center gap-2 group p-1 rounded-xl hover:bg-slate-50 transition"
@@ -365,6 +367,7 @@ function Navbar() {
 
           {/* Mobile Hamburger Button */}
           <div className="flex items-center gap-2 lg:hidden">
+            {user && <NotificationBell />}
             {user && (
               <Link to={getDashboardPath(user.role)} className="shrink-0">
                 <Badge

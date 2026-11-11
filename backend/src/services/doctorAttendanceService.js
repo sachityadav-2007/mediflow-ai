@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const QRCode = require('qrcode');
 const prisma = require('../config/db');
 const { getIO } = require('../config/socket');
+const { createNotification, notifyAdmins } = require('./notificationService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mediflow_ai_jwt_secret_dev_key';
 
@@ -453,6 +454,40 @@ const processDoctorCheckIn = async ({ token, doctorUser, ipAddress, userAgent })
     });
   }
 
+  // 8. Dispatch In-App Notifications
+  try {
+    // Notify all hospital administrators of clinician physical check-in
+    notifyAdmins({
+      type: 'DOCTOR_CHECK_IN',
+      title: 'Doctor Shift Check-In',
+      message: `Dr. ${doctor.user.name} checked in at ${qrRecord.location}. Status updated to PRESENT.`,
+      metadata: {
+        doctorId: doctor.id,
+        doctorName: doctor.user.name,
+        location: qrRecord.location,
+        checkInTime: now,
+        attendanceId: result.attendance.id,
+      },
+    }).catch((err) => console.warn('Admin check-in notification notice:', err.message));
+
+    // Notify doctor
+    if (doctor.userId) {
+      createNotification({
+        userId: doctor.userId,
+        type: 'DOCTOR_CHECK_IN',
+        title: 'Hospital Shift Started',
+        message: `Welcome Dr. ${doctor.user.name}. You are checked in at ${qrRecord.location}. Status is now PRESENT.`,
+        metadata: {
+          location: qrRecord.location,
+          checkInTime: now,
+          attendanceId: result.attendance.id,
+        },
+      }).catch((err) => console.warn('Doctor check-in notification notice:', err.message));
+    }
+  } catch (notifErr) {
+    console.warn('Doctor check-in notification dispatch skipped:', notifErr.message);
+  }
+
   return {
     success: true,
     message: `Attendance confirmed: Welcome Dr. ${doctor.user.name}! Status updated to PRESENT.`,
@@ -569,6 +604,38 @@ const processDoctorCheckOut = async ({ doctorUser, notes, ipAddress, userAgent }
       durationMinutes,
       checkOutTime: now,
     });
+  }
+
+  // Dispatch In-App Notifications
+  try {
+    // Notify all administrators of doctor checkout
+    notifyAdmins({
+      type: 'DOCTOR_CHECK_OUT',
+      title: 'Doctor Shift Completed',
+      message: `Dr. ${doctor.user.name} checked out. Shift duration: ${durationMinutes} minute(s). Status is now OFFLINE.`,
+      metadata: {
+        doctorId: doctor.id,
+        doctorName: doctor.user.name,
+        durationMinutes,
+        checkOutTime: now,
+      },
+    }).catch((err) => console.warn('Admin check-out notification notice:', err.message));
+
+    // Notify doctor
+    if (doctor.userId) {
+      createNotification({
+        userId: doctor.userId,
+        type: 'DOCTOR_CHECK_OUT',
+        title: 'Hospital Shift Ended',
+        message: `Shift completed successfully. Total duration: ${durationMinutes} minute(s). Status updated to OFFLINE.`,
+        metadata: {
+          durationMinutes,
+          checkOutTime: now,
+        },
+      }).catch((err) => console.warn('Doctor check-out notification notice:', err.message));
+    }
+  } catch (notifErr) {
+    console.warn('Doctor check-out notification dispatch skipped:', notifErr.message);
   }
 
   return {

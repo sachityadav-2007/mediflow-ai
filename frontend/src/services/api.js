@@ -461,4 +461,27 @@ export const getSpecialtyRecommendation = async (symptoms) => {
   return response.data;
 };
 
+// -----------------------------------------------------------------------------
+// Real-Time Notification Services
+// -----------------------------------------------------------------------------
+export const getNotifications = async (params = {}) => {
+  const response = await api.get('/api/notifications', { params });
+  return response.data;
+};
+
+export const getUnreadNotificationCount = async () => {
+  const response = await api.get('/api/notifications/unread-count');
+  return response.data;
+};
+
+export const markNotificationAsRead = async (id) => {
+  const response = await api.patch(`/api/notifications/${id}/read`);
+  return response.data;
+};
+
+export const markAllNotificationsAsRead = async () => {
+  const response = await api.patch('/api/notifications/read-all');
+  return response.data;
+};
+
 export default api;

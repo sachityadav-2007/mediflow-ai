@@ -10,9 +10,9 @@
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v3.4-38B2AC?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Socket.IO](https://img.shields.io/badge/Socket.IO-v4.8-010101?logo=socketdotio&logoColor=white)](https://socket.io/)
 [![Scikit-Learn](https://img.shields.io/badge/scikit--learn-v1.6-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
-MediFlow AI 2.0 is an enterprise-grade hospital outpatient department (OPD) intelligence, appointment scheduling, and patient queue triage platform. It combines high-throughput transactional scheduling with an independent Python FastAPI machine learning microservice, cryptographic clinician presence tracking, event-driven WebSocket queue feeds, and academic data governance.
+MediFlow AI 2.0 is a full-stack hospital outpatient department (OPD) intelligence, appointment scheduling, real-time notification, and patient queue triage platform. It combines transactional scheduling with an independent Python FastAPI machine learning microservice, signed QR clinician presence tracking, event-driven WebSocket updates, and scientific data governance.
 
 ---
 
@@ -34,7 +34,8 @@ MediFlow AI 2.0 is an enterprise-grade hospital outpatient department (OPD) inte
 14. [Screenshots](#-screenshots)
 15. [Testing & Verification Suites](#-testing--verification-suites)
 16. [Role-Based Access Demo Credentials](#-role-based-access-demo-credentials)
-17. [Future Scope & Roadmap](#-future-scope--roadmap)
+17. [Known Limitations](#-known-limitations)
+18. [Future Scope & Roadmap](#-future-scope--roadmap)
 
 ---
 
@@ -70,59 +71,64 @@ Modern tertiary healthcare facilities face severe operational friction in their 
 
 Traditional Hospital Information Management Systems (HIMS) treat outpatient appointments as static calendar entries. When a surgeon is delayed in an emergency procedure or an inpatient code arises, outpatient queues stall without automated warnings. When booked patients fail to show up, vacant slots are lost forever.
 
-MediFlow AI transforms scheduling from a passive ledger into an **active, self-healing healthcare workflow**:
-1. Synchronizes clinician working schedules with **live physical presence** verified via cryptographically signed QR codes and geofencing.
-2. Automates dynamic slot triage using an **explainable priority formula** (clinical urgency + wait duration).
-3. Provides **advisory ML predictions** without ever allowing AI to override clinician schedules or bypass hospital safety constraints.
+MediFlow AI transforms scheduling from a passive ledger into an **active, adaptive healthcare workflow**:
+1. Synchronizes clinician working schedules with **live physical presence** verified via signed dynamic QR codes and hospital gate sessions.
+2. Automates dynamic waitlist triage using an **explainable rule-based priority formula** (medical priority + clinical urgency + waiting duration).
+3. Dispatches **real-time in-app notifications** persisted in PostgreSQL and pushed over Socket.IO user/role rooms alongside transactional email alerts.
+4. Provides **advisory ML predictions** with strict scientific data governance without ever allowing AI to override clinician absence or booking safety constraints.
 
 ---
 
 ## 🌟 Key Features
 
 ### 1. Multi-Role Authentication & Access Control (RBAC)
-- Strict segregation of privileges across **ADMIN**, **DOCTOR**, and **PATIENT** roles.
-- Passwords salted and hashed with **bcrypt** (salt rounds: 10).
-- Stateless **JWT** authentication transmitted via secure, **HTTP-only cookies** to prevent XSS.
-- Defense-in-depth authorization guards across backend REST endpoints and frontend React routers.
+- Strict segregation of privileges across **ADMIN**, **DOCTOR**, and **PATIENT** roles (`RECEPTIONIST` enum also defined in schema).
+- Passwords salted and hashed with **bcryptjs** (salt rounds: 10).
+- Stateless **JWT** authentication transmitted via **HTTP-only cookies** (`sameSite: 'lax'`) with Bearer fallback.
+- Role guards across Express REST routes (`authenticateUser`, `authorizeRoles`) and React Router (`ProtectedRoute`).
 
-### 2. Cryptographic Doctor Presence & Attendance
-- Clinicians verify daily hospital presence using signed dynamic QR passes and PIN check-ins.
-- Geofence validation rejects check-in attempts located > 150m from hospital campus coordinates.
-- Authoritative live presence state machine: `PRESENT`, `IN_CONSULTATION`, `AVAILABLE`, `AWAY`, and `OFFLINE`.
-- Real-time Socket.IO broadcasts ensure doctor directory and patient booking forms reflect live status instantly.
+### 2. Smart Doctor Presence & QR Attendance Management
+- Clinicians check in and out of hospital OPD gates using **signed JWT QR tokens** (`/api/presence/qr/check-in`, `/api/presence/qr/check-out`) with camera scanning (`html5-qrcode`), manual token entry, or 1-Click demo gate verification.
+- Anti-replay session validation rejects duplicate check-ins (`HTTP 409 Conflict`) and invalid check-outs (`HTTP 404`), backed by rate limiting (`qrAttendanceLimiter`) and `QRScanAudit` logging.
+- Supports live presence states (`PRESENT`, `AVAILABLE`, `IN_CONSULTATION`, `ON_BREAK`, `ON_LEAVE`, `AWAY`, `BUSY`, `OFFLINE`).
+- Real-time Socket.IO events (`doctor_status_changed`, `doctor_attendance_updated`) keep doctor and admin dashboards synchronized and dynamically gate patient booking slots.
 
 ### 3. Dynamic Slot Generation & Double-Booking Prevention
-- Generates discrete, non-overlapping consultation slots based on clinician schedules and consultation duration.
-- Enforces database-level uniqueness (`@@unique([doctorId, slotDate, startTime])`) inside PostgreSQL transactions (`prisma.$transaction`).
-- Guarantees zero double-booking even under concurrent patient booking surges.
+- Generates discrete, non-overlapping consultation slots from doctor schedules and consultation durations (`slotGenerator.js`).
+- Executes bookings inside **PostgreSQL atomic transactions (`prisma.$transaction`)** with doctor-slot conflict checks, patient-time conflict checks, and `@unique` `Appointment.slotId` enforcement.
 
-### 4. Smart Waitlist & Priority-Based Auto-Allocation
-- Patients unable to book their preferred slot can join a smart waitlist queue.
-- Explainable priority scoring formula:
-  $$\text{Priority Score} = (\text{Medical Urgency Weight} \times 40) + (\text{Wait Time Days} \times 10) + \text{Triage Factor}$$
-- When a confirmed appointment is cancelled or rescheduled, the engine atomically triages and promotes the highest-priority waitlisted patient.
+### 4. Smart Waitlist & Rule-Based Priority Auto-Allocation
+- Patients unable to book a preferred slot can join a ranked waitlist queue (`/api/waitlist`).
+- **Deterministic, explainable rule-based priority formula** (`priorityService.js`, bounded **15–90 points**):
+  $$\text{Priority Score} = \text{Medical Priority Points (10–40)} + \text{Clinical Urgency Points (5–20)} + \min\!\left(\left\lfloor\frac{\text{Wait Minutes}}{30}\right\rfloor, 30\right)$$
+- When a confirmed appointment is cancelled or rescheduled, `allocationService.js` automatically allocates the freed slot to the highest-priority waitlisted candidate.
 
-### 5. Live OPD Queue Board & Digital Check-In Pass
-- Patients receive a cryptographically signed 48-hour JWT QR pass upon booking confirmation.
-- Reception desk camera scanner (`/check-in`) validates check-in, stamps `checkedInAt`, and issues live queue tokens.
-- Live OPD queue screen (`/queue/:doctorId`) displays anonymized patient queues (`Rahul V.***`), current patient in cabin, and dynamic wait times.
+### 5. Real-Time In-App Notification System
+- Persistent `Notification` model in PostgreSQL linked to `User` (`isRead`, `readAt`, `metadata`, `NotificationType` enum).
+- Delivers user-scoped notifications (`user_${userId}`) and admin alerts (`role_admin`) over Socket.IO (`notification:new`, `notification:count`) to the navbar **`NotificationBell`** center with live unread badges, skeleton/empty/error states, and mark-as-read controls.
+- Triggered on appointment booking, appointment cancellation, and doctor QR check-in/check-out without interrupting core transactions if dispatch fails.
 
-### 6. Decoupled Machine Learning Microservice (MediFlow AI 2.0)
-- Python FastAPI microservice (port 5002) communicating with Express via pre-shared token authentication (`X-Internal-Token`).
-- Houses 4 scikit-learn models:
+### 6. AI Health Assistant & Smart Symptom Triage (Rule-Based)
+- Non-diagnostic health navigation assistant (`/health-assistant`, `/api/triage/analyze`) featuring a regex **Emergency Keyword Safety Circuit** for acute cardiac/respiratory/stroke symptoms.
+- Multi-specialty weighted keyword scoring maps symptoms to hospital departments, matches verified PostgreSQL doctors, attaches a medical disclaimer, and stores per-patient `TriageHistory`.
+
+### 7. Live OPD Queue Board & Patient Check-In Pass
+- Patients receive a signed 48-hour JWT QR pass (`GET /api/check-in/appointment/:id/qr`, scanned via `POST /api/check-in/scan`).
+- Clinic reception/doctor check-in (`/check-in`) stamps `checkedInAt`, `consultationStartedAt`, `consultationCompletedAt`, and `actualDurationMinutes`.
+- Public waiting room queue screen (`/queue/:doctorId`) displays anonymized queues (`Rahul V.***`) with live updates.
+
+### 8. Decoupled Machine Learning Microservice & Governance Center (MediFlow AI 2.0)
+- Python FastAPI microservice (port `5002`) communicating with Express via `X-Internal-Token` authentication and a 3,000ms timeout with statistical fallback (`mlServiceClient.js`).
+- Houses **4 scikit-learn models** trained and benchmarked on an **isolated synthetic development pipeline (4,080 CSV records)**:
   1. **Patient Waiting-Time Regressor** (`RandomForestRegressor`)
   2. **Doctor Availability & Delay Classifier** (`RandomForestClassifier`)
   3. **Consultation Duration Regressor** (`GradientBoostingRegressor`)
-  4. **Department Demand Forecaster** (Time-Series Lag Regressor)
-- Graceful degradation: Express wraps ML requests in strict 3-second timeouts. If FastAPI is offline, core booking continues seamlessly.
+  4. **Department Demand Forecaster** (`RandomForestRegressor` with Time-Series Lag Features)
+- **Admin Intelligence Center (`/admin/intelligence`):** Separates development benchmark performance from real hospital readiness, audits prospective timestamp completeness (`INSUFFICIENT_DATA`), and gates `/api/ai/admin/retrain` until clinical data thresholds are met.
 
-### 7. AI Intelligence & Model Governance Center
-- Administrative executive dashboard (`/admin/ai-intelligence`).
-- Displays live model health, benchmark metrics, baseline comparisons (Dummy/Mean baselines), prospective data collection progress, and an interactive clinical feature sandbox.
-
-### 8. Transactional Rescheduling & Automated Notification Pipeline
-- Patients can atomically reschedule appointments with automatic release and waitlist reallocation.
-- Automated email confirmations, check-in passes, and reschedule alerts dispatched via Nodemailer (integrated with Ethereal dev inbox).
+### 9. Transactional Rescheduling & Email Notification Pipeline
+- Atomic rescheduling releases the old slot for waitlist reallocation while booking the new slot.
+- Asynchronous email confirmations, check-in passes, cancellations, and reminders dispatched via **Nodemailer** (auto-provisions Ethereal test inbox when SMTP credentials are omitted).
 
 ---
 
@@ -130,11 +136,11 @@ MediFlow AI transforms scheduling from a passive ledger into an **active, self-h
 
 | Layer | Technologies | Purpose |
 |:---|:---|:---|
-| **Frontend Client** | React 18, Vite, Tailwind CSS, Lucide Icons, Axios, Socket.IO Client | Responsive Apollo-grade UI, real-time live queues, and doctor portal |
-| **Backend API** | Node.js, Express.js, Prisma ORM, Socket.IO, Nodemailer, Bcrypt.js, JWT | RESTful API, authentication, business logic, WebSocket orchestration |
-| **ML Microservice** | Python 3.11+, FastAPI, Uvicorn, scikit-learn, pandas, numpy, joblib | Independent inference engine, model evaluation registry, training scripts |
-| **Database** | PostgreSQL 14+, Prisma Client | Relational schema, transactional integrity, foreign keys, compound indexes |
-| **Security & Auth** | HTTP-Only JWT Cookies, HMAC-SHA256, Geofence Math, Internal Service Tokens | End-to-end transport and role-based security |
+| **Frontend Client** | React 18, Vite 5, Tailwind CSS 3.4, React Router 6, Axios, Socket.IO Client 4.8, `html5-qrcode` | Role-based portals, QR camera scanner, Notification Bell, Admin Intelligence Center |
+| **Backend API** | Node.js 18+, Express 4.21, Prisma ORM 6.19, Socket.IO 4.8, Nodemailer, Bcrypt.js, JWT, `qrcode`, `cookie-parser` | REST API, JWT/RBAC middleware, ACID transactions, notification & email dispatch, WebSocket rooms |
+| **ML Microservice** | Python 3.11+, FastAPI, Uvicorn, scikit-learn, pandas, numpy, joblib, Pydantic, Pytest | Isolated inference service, baseline evaluation registry, data quality audit, dev training scripts |
+| **Database** | PostgreSQL 14+, Prisma Client | Relational schema (14 models), versioned migrations, foreign keys, query indexes |
+| **Security & Auth** | HTTP-Only JWT Cookies, Signed QR JWTs, Custom Rate Limiter, `X-Internal-Token` | Session security, anti-replay QR validation, inter-service protection |
 
 ---
 
@@ -178,25 +184,26 @@ MediFlow AI transforms scheduling from a passive ledger into an **active, self-h
 ```
 mediflow-ai/
 ├── backend/                        # Node.js Express Backend Service
-│   ├── prisma/
-│   │   └── seed.js                 # Database seeder (Doctors, Patients, Schedules)
+│   ├── prisma -> ../database       # Symlink to authoritative database directory
 │   ├── src/
-│   │   ├── controllers/            # Route controllers (Auth, Appointment, Doctor, AI, etc.)
-│   │   ├── middlewares/            # JWT authentication & RBAC guards
-│   │   ├── routes/                 # Express REST endpoint routers
+│   │   ├── config/                 # db.js (Prisma) & socket.js (Socket.IO rooms)
+│   │   ├── controllers/            # Auth, Appointment, Doctor, Attendance, Notification, Triage, AI, Check-In
+│   │   ├── middleware/             # JWT authentication, RBAC & rateLimiter guards
+│   │   ├── routes/                 # Express REST endpoint routers (/api/*)
 │   │   ├── services/               # Core business services
-│   │   │   ├── ai/
-│   │   │   │   ├── mlServiceClient.js   # Resilient HTTP client for FastAPI
-│   │   │   │   ├── aiService.js         # AI controller orchestration & fallbacks
-│   │   │   │   ├── waitingTimeEstimator.js
-│   │   │   │   └── availabilityPredictor.js
-│   │   │   ├── appointment.service.js   # Transactional slot booking & reschedule
-│   │   │   ├── waitlist.service.js      # Priority triage & auto-allocation
-│   │   │   ├── checkInService.js        # QR pass & consultation timestamping
-│   │   │   ├── emailService.js          # Nodemailer transaction notifications
-│   │   │   └── doctorPresence.service.js
-│   │   └── server.js               # Express application & Socket.IO server
-│   ├── tests/                      # Integration test suites
+│   │   │   ├── ai/                 # mlServiceClient.js, aiService.js, statistical estimators
+│   │   │   ├── appointment.service.js
+│   │   │   ├── waitlist.service.js
+│   │   │   ├── priorityService.js
+│   │   │   ├── allocationService.js
+│   │   │   ├── checkInService.js
+│   │   │   ├── doctorAttendanceService.js
+│   │   │   ├── notificationService.js
+│   │   │   ├── triageService.js
+│   │   │   └── emailService.js
+│   │   ├── app.js                  # Express router & middleware configuration
+│   │   └── server.js               # HTTP & Socket.IO server entry point
+│   ├── tests/                      # Backend ML integration tests
 │   ├── .env.example
 │   └── package.json
 ├── database/                       # Database Definition & Migrations
@@ -206,41 +213,31 @@ mediflow-ai/
 │   │   ├── 20261101071958_add_waitlist_urgency/
 │   │   ├── 20261103035351_add_prediction_logs/
 │   │   └── 20261103210000_add_prospective_consultation_timestamps/
-│   └── schema.prisma               # Authoritative Prisma Schema
+│   ├── schema.prisma               # Authoritative Prisma Schema (14 models, includes Notification)
+│   └── seed.js                     # Database seeder
 ├── frontend/                       # React 18 / Vite Client Application
 │   ├── src/
-│   │   ├── components/             # Reusable UI components & AI Intelligence Center
-│   │   ├── context/                # Authentication & Socket context providers
-│   │   ├── pages/                  # Route views (Home, Directory, Dashboards, Queue)
-│   │   └── services/               # Axios API client & WebSocket listeners
+│   │   ├── components/             # NotificationBell, Navbar, AIIntelligenceCenter, MediFlowHelperBubble, UI primitives
+│   │   ├── context/                # AuthContext provider
+│   │   ├── hooks/                  # useSocket real-time subscription hook
+│   │   ├── pages/                  # Route views (Home, Directory, Dashboards, Attendance, Queue, HealthAssistant)
+│   │   └── services/               # api.js (Axios) & socket.js (Socket.IO client)
 │   ├── .env.example
 │   └── package.json
 ├── ml-service/                     # Python FastAPI Machine Learning Microservice
 │   ├── app/
-│   │   ├── api/routes/             # Inference routes (/predict/*, /models/*)
-│   │   ├── core/                   # Security (token auth) & Pydantic settings
+│   │   ├── api/routes/             # /health, /predict/*, /models/*, /data-quality/*
+│   │   ├── core/                   # Security (X-Internal-Token) & Pydantic settings
 │   │   ├── schemas/                # Request & response validation schemas
-│   │   └── services/               # Predictor services & model loaders
-│   ├── artifacts/                  # Trained scikit-learn models & registry.json
-│   │   ├── waiting_time_model.joblib
-│   │   ├── doctor_availability_model.joblib
-│   │   ├── appointment_duration_model.joblib
-│   │   ├── department_demand_model.joblib
-│   │   └── model_registry.json
-│   ├── datasets/                   # Synthetic benchmark datasets
-│   ├── tests/                      # Pytest test suite (10/10 tests)
-│   ├── training/                   # Model training & prospective evaluation scripts
+│   │   └── services/               # Predictor & data quality services
+│   ├── artifacts/                  # Trained scikit-learn .joblib artifacts & model_registry.json
+│   ├── data/development/           # Isolated synthetic development CSV benchmarks (4,080 rows)
+│   ├── tests/                      # Pytest suite (15 tests)
+│   ├── training/                   # Dev training & data-loader scripts
 │   ├── .env.example
 │   └── requirements.txt
-├── docs/                           # Comprehensive Engineering Documentation
-│   ├── screenshots/                # Application UI screenshots
-│   ├── FINAL_SYSTEM_INTEGRATION_AUDIT.md
-│   ├── MEDIFLOW_AI_2_ARCHITECTURE.md
-│   ├── ML_DATA_AUDIT.md
-│   ├── ML_MODEL_EVALUATION.md
-│   ├── AI_VIVA_PREPARATION.md
-│   └── RESEARCH_EVALUATION_REPORT.md
-├── scratch/                        # Automated verification & audit test runners
+├── docs/                           # Engineering Documentation & UI Screenshots
+├── scratch/                        # Automated E2E & subsystem audit scripts
 ├── .env.example                    # Master environment template
 └── README.md
 ```
@@ -317,9 +314,10 @@ MediFlow AI uses formal versioned Prisma migrations.
    npm --prefix backend install
    ```
 
-2. **Execute versioned migrations:**
+2. **Apply versioned migrations and sync latest schema:**
    ```bash
    npx --prefix backend prisma migrate deploy --schema=database/schema.prisma
+   npx --prefix backend prisma db push --schema=database/schema.prisma
    ```
 
 3. **Generate Prisma Client:**
@@ -392,11 +390,19 @@ npm --prefix frontend run dev
 ### Appointments & Slots
 | Method | Endpoint | Access | Description |
 |:---|:---|:---|:---|
-| `GET` | `/api/appointments/slots/:doctorId` | Public | Fetch available, non-overlapping consultation slots (presence-gated) |
+| `GET` | `/api/appointments/slots/:doctorId` | Authenticated | Fetch available, non-overlapping consultation slots (presence-gated) |
 | `POST` | `/api/appointments` | Patient | Book an appointment slot inside a Prisma transaction |
-| `POST` | `/api/appointments/:id/reschedule`| Patient | Atomically reschedule appointment with waitlist reallocation |
-| `PATCH` | `/api/appointments/:id/cancel` | Patient / Admin | Cancel appointment and auto-allocate freed slot to waitlist |
+| `PUT` | `/api/appointments/:id/reschedule` | Patient / Doctor / Admin | Atomically reschedule appointment with waitlist reallocation |
+| `PUT` | `/api/appointments/:id/cancel` | Patient / Doctor / Admin | Cancel appointment and auto-allocate freed slot to waitlist |
 | `GET` | `/api/appointments/my` | Patient | View patient's booked appointments and digital QR tokens |
+
+### Real-Time Notifications
+| Method | Endpoint | Access | Description |
+|:---|:---|:---|:---|
+| `GET` | `/api/notifications` | Authenticated | Retrieve paginated in-app notifications and unread count for current user |
+| `GET` | `/api/notifications/unread-count` | Authenticated | Fast unread notification count lookup for Navbar bell badge |
+| `PATCH` | `/api/notifications/read-all` | Authenticated | Mark all unread notifications as read for current user |
+| `PATCH` | `/api/notifications/:id/read` | Owner Only | Mark single notification as read (ownership-enforced) |
 
 ### Smart Waitlist & Priority Allocation
 | Method | Endpoint | Access | Description |
@@ -410,15 +416,16 @@ npm --prefix frontend run dev
 ### AI Health Assistant & Smart Symptom Triage
 | Method | Endpoint | Access | Description |
 |:---|:---|:---|:---|
-| `POST` | `/api/triage/analyze` | Patient | Emergency detection circuit, department routing & doctor matching |
-| `GET` | `/api/triage/history` | Patient | View patient's historical symptom evaluations and recommendations |
+| `POST` | `/api/triage/analyze` | Authenticated | Emergency detection circuit, department routing & doctor matching |
+| `GET` | `/api/triage/history` | Authenticated | View patient's historical symptom evaluations and recommendations |
 
 ### Check-In & OPD Queue
 | Method | Endpoint | Access | Description |
 |:---|:---|:---|:---|
-| `POST` | `/api/checkin/process` | Doctor / Admin | Scan patient QR token, stamp `checkedInAt`, and enter queue |
-| `GET` | `/api/checkin/queue/:doctorId` | Public | Live anonymized OPD queue board for clinic waiting rooms |
-| `PATCH` | `/api/checkin/status/:id` | Doctor / Admin | Update consultation lifecycle (`START` -> `COMPLETE`) |
+| `GET` | `/api/check-in/appointment/:id/qr` | Owner / Doctor / Admin | Generate or retrieve signed 48-hour appointment check-in QR pass |
+| `POST` | `/api/check-in/scan` | Authenticated | Scan patient QR token, stamp `checkedInAt`, and enter queue |
+| `GET` | `/api/check-in/queue/:doctorId` | Public | Live anonymized OPD queue board for clinic waiting rooms |
+| `PUT` | `/api/check-in/queue/consultation/:id` | Doctor / Admin | Update consultation lifecycle (`START` -> `COMPLETE` -> `NO_SHOW`) |
 
 ### Machine Learning & AI Intelligence
 | Method | Endpoint | Access | Description |
@@ -426,9 +433,12 @@ npm --prefix frontend run dev
 | `GET` | `/api/ai/model-status` | Authenticated | Health and readiness status of all 4 ML models |
 | `GET` | `/api/ai/waiting-time` | Authenticated | Advisory patient waiting-time inference |
 | `GET` | `/api/ai/doctor-availability` | Authenticated | Advisory doctor availability and delay probability |
-| `GET` | `/api/ai/appointment-duration`| Authenticated | Advisory consultation duration inference |
-| `GET` | `/api/ai/department-demand` | Authenticated | 7-day rolling department patient visit forecast |
+| `GET` | `/api/ai/appointment-duration` | Authenticated | Advisory consultation duration inference |
+| `GET` | `/api/ai/appointment-demand` | Authenticated | Department demand analysis & 7-day rolling forecast |
 | `GET` | `/api/ai/admin/evaluation` | Admin Only | Full model evaluation registry with baseline comparisons |
+| `GET` | `/api/ai/admin/data-quality` | Admin Only | Prospective label completeness & production readiness audit |
+| `GET` | `/api/ai/admin/dev-dataset-status` | Admin Only | Isolated development benchmark dataset manifest (4,080 records) |
+| `POST` | `/api/ai/admin/retrain` | Admin Only | Production retraining trigger (gated until `>= 500` real events) |
 | `GET` | `/api/ai/admin/analytics` | Admin Only | Institutional capacity utilization and forecast reliability |
 
 ---
@@ -439,8 +449,8 @@ npm --prefix frontend run dev
 MediFlow AI 2.0 adheres strictly to **academic honesty and healthcare software governance**:
 - An exhaustive audit of the historical clinic database revealed that prior to MediFlow AI 2.0, completed consultations lacked `checkedInAt` and `consultationStartedAt` timestamps.
 - **Never claim unverified production accuracy:** MediFlow AI explicitly labels all models in production as `IMPLEMENTED_BUT_INSUFFICIENT_DATA`.
-- **Benchmark Evaluation:** The 4 machine learning pipelines were trained and statistically benchmarked against naive baselines using a clearly designated `SYNTHETIC_DEVELOPMENT_PIPELINE` dataset.
-- **Prospective Data Capture:** Versioned migration `20261103210000_add_prospective_consultation_timestamps` added timestamp columns to the PostgreSQL database. As clinicians operate the system, ground-truth labels are stamped automatically. Once $\ge 500$ clinical events accumulate, automated retraining activates.
+- **Benchmark Evaluation:** The 4 machine learning pipelines were trained and statistically benchmarked against naive baselines using a clearly designated `SYNTHETIC_DEVELOPMENT_PIPELINE` dataset (4,080 rows in `ml-service/data/development/`).
+- **Prospective Data Capture:** Versioned migration `20261103210000_add_prospective_consultation_timestamps` added timestamp columns to the PostgreSQL database. As clinicians operate the system, ground-truth labels are stamped automatically. Production retraining (`/api/ai/admin/retrain`) remains strictly gated until $\ge 500$ clinical events accumulate.
 
 ### The Four Machine Learning Models
 ```
@@ -479,75 +489,76 @@ MediFlow AI 2.0 adheres strictly to **academic honesty and healthcare software g
 
 ## 🧪 Testing & Verification Suites
 
-MediFlow AI includes exhaustive automated test batteries across all layers:
+MediFlow AI includes automated test suites verified across all layers:
 
 ### 1. Python ML Service Pytest Suite
 ```bash
 PYTHONPATH=ml-service pytest ml-service/tests
 ```
-**Results:** `15 passed in 1.90s` (100% pass rate covering API contracts, model serialization, preprocessing pipelines, data quality metrics, and health probes).
+**Observed Result:** `15 passed in 3.21s` (API contracts, model serialization, preprocessing pipelines, data quality metrics, and health probes).
 
-### 2. Complete End-to-End System Integration Audit
+### 2. Real-Time Notification System E2E Suite
+```bash
+node scratch/test_notifications.mjs
+```
+**Observed Result:** `50 passed, 0 failed (100%)` (Verifies HTTP 401/403 security guards, PostgreSQL `Notification` persistence, Socket.IO `notification:new` & `notification:count` room isolation, booking/cancellation/QR check-in/check-out alerts, duplicate prevention, mark-as-read, and mark-all-read).
+
+### 3. Complete End-to-End System Integration Audit
 ```bash
 node scratch/test_complete_integration_audit.mjs
 ```
-**Results:** `62 passed, 0 failed (100%)` across all 8 major architectural layers:
-- Section 1: Service Health Verification (Express 5001 + FastAPI 5002)
-- Section 2: Authentication & Role-Based Access Control (Admin, Doctor, Patient, RBAC rejection)
-- Section 3: Smart Doctor Presence & Shift Terminal Integration (QR Check-In, Status, Duplicate Prevention, Admin Directory sync, Check-Out)
-- Section 4: Appointment System & Presence Gating (Offline slot blocking, present slot unlocking, slot reservations)
-- Section 5: Dynamic Waitlist & Smart Priority Allocation (Urgency triage, queue rankings)
-- Section 6: ML Prediction Microservice Integration & Explainability (Waiting Time, Availability, Duration, Demand)
-- Section 7: Admin AI Intelligence Center & Data Governance (Model registry, data quality audit, dev benchmark verification)
-- Section 8: AI Health Assistant & Smart Symptom Triage (Emergency keyword circuit, department navigation, patient history)
+**Observed Result:** `62 passed, 0 failed (100%)` across all 8 architectural layers (Express/FastAPI health, JWT & RBAC, QR attendance, presence-gated appointments, waitlist prioritization, 4 ML inference endpoints, Admin Intelligence & Data Quality audit, and AI Symptom Triage).
 
-### 3. Smart Doctor Presence & QR Attendance Workflow Test
+### 4. Smart Doctor Presence & QR Attendance Workflow Test
 ```bash
 node scratch/test_doctor_presence.mjs
 ```
-**Results:** `11 passed, 0 failed (100%)` (Validates QR check-in, presence transition to `PRESENT`, duplicate check-in 409 rejection, admin directory reflection, check-out transition to `OFFLINE`, session tracking, and slot gating).
-
-### 4. Express Backend Master Test Battery
-```bash
-npm --prefix backend test
-```
-**Results:** `186 passed, 0 failed` across 6 test suites (E2E verification, AI prediction engine, notifications, QR attendance, data integrity, and RBAC).
+**Observed Result:** `11 passed, 0 failed (100%)` (Validates QR check-in, presence transition to `PRESENT`, duplicate check-in 409 rejection, admin directory reflection, check-out transition to `OFFLINE`, and slot gating).
 
 ### 5. Frontend Production Build Check
 ```bash
 npm --prefix frontend run build
 ```
-**Results:** `✓ built in 1.36s` (Clean Vite production bundle without syntax, linting, or module import errors).
+**Observed Result:** `183 modules transformed`, `✓ built in 1.41s` (Clean Vite production bundle without syntax or import errors).
 
 ---
 
 ## 👥 Role-Based Access Demo Credentials
 
-The database seeder provisions initial test users across all three roles:
+The database seeder provisions initial test users across all three roles (local development/viva demonstration accounts):
 
 | Role | Email Address | Password | Clinical Function / Context |
 |:---|:---|:---|:---|
 | **ADMIN** | `admin@mediflow.com` | `password123` | System Administrator with access to AI Intelligence Center, QR Gates & Audit Logs |
-| **DOCTOR** | `dr.jawale@mediflow.com` | `password123` | Dr. Sunil Jawale (Cardiology Consultant — used in live presence demo) |
+| **DOCTOR** | `dr.jawale@mediflow.com` | `password123` | Dr. Sunil Jawale (Nephrology Consultant — used in live presence & booking verification) |
 | **DOCTOR** | `dr.sharma@mediflow.com` | `password123` | Dr. Rajesh Sharma (Cardiology Consultant, Room 101) |
 | **DOCTOR** | `dr.patel@mediflow.com` | `password123` | Dr. Ananya Patel (Neurology Consultant, Room 204) |
-| **PATIENT**| `rahul.verma@example.com` | `password123` | Test Patient with booked appointment and signed QR check-in pass |
+| **PATIENT**| `rahul.verma@example.com` | `password123` | Test Patient with booked appointment and digital QR check-in pass |
 | **PATIENT**| `priya.singh@example.com` | `password123` | Test Patient with active waitlist entry |
+
+---
+
+## ⚠️ Known Limitations
+
+1. **Production ML Training Gate (`INSUFFICIENT_DATA`):** ML models currently serve advisory inference using development benchmark weights (`SYNTHETIC_DEVELOPMENT_PIPELINE`, 4,080 rows) until $\ge 500$ prospective real clinical events accumulate in PostgreSQL.
+2. **Local QR & Geolocation Simulation:** Camera QR scanning works via `html5-qrcode` when permitted, with a 1-Click Demo / manual token workflow for local review. Client geolocation coordinates may be optionally requested on `/doctor/attendance`, while the backend validates the signed JWT QR token and session state without enforcing a physical 150m campus geofence.
+3. **In-App Socket.IO vs. Background Web Push:** Real-time notification alerts arrive immediately via Socket.IO while the web app is open; background OS push notifications (Service Worker / VAPID) when the browser is closed are not yet implemented.
+4. **Development Fallback Strings & Ethereal SMTP:** Development environment fallbacks exist in local config modules when `.env` variables are omitted; production deployment must supply strong `JWT_SECRET`, `ML_SERVICE_SECRET`, and real SMTP credentials.
 
 ---
 
 ## 🔮 Future Scope & Roadmap
 
 1. **Automated Production Retraining Pipeline:**  
-   Once $\ge 500$ ground-truth consultation records accumulate in PostgreSQL, trigger automated retraining via cron to replace synthetic benchmark weights with genuine hospital distribution weights.
-2. **HL7 / FHIR Integration:**  
-   Export appointment encounters and waitlist records using standard Fast Healthcare Interoperability Resources (FHIR R4) specifications.
-3. **Hardware IoT RFID / BLE Gateway:**  
-   Integrate physical hospital door RFID card readers directly with `/api/doctors/presence` using Webhook listeners for automated touchless attendance.
-4. **Federated Learning for Multi-Hospital Networks:**  
-   Train cross-hospital demand forecasting models collaboratively without sharing sensitive patient health information (PHI) across facilities.
+   Once $\ge 500$ ground-truth consultation records accumulate in PostgreSQL, trigger scheduled/automated retraining to replace synthetic benchmark weights with real hospital data distributions.
+2. **Server-Side Geofencing & Physical IoT RFID / BLE Gateway:**  
+   Integrate physical hospital door RFID card readers and true server-side Haversine campus geofencing directly with `/api/presence/qr/check-in`.
+3. **Web Push (Service Worker / VAPID) & SMS Gateway:**  
+   Extend the notification pipeline beyond Socket.IO and Nodemailer email to browser background push notifications and SMS reminders.
+4. **HL7 / FHIR Integration & Multi-Hospital Federation:**  
+   Export appointment encounters using HL7 FHIR R4 specifications and support federated demand forecasting across hospital networks.
 
 ---
 
 ## 📄 License
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **ISC** License as specified in `package.json`.

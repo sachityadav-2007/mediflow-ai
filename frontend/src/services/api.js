@@ -14,6 +14,46 @@ const api = axios.create({
   },
 });
 
+// Request interceptor: attach Bearer token from localStorage for cross-domain environments
+api.interceptors.request.use(
+  (config) => {
+    try {
+      const token =
+        localStorage.getItem('mediflow_token') ||
+        localStorage.getItem('token');
+      if (token) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {
+      // Ignore localStorage access issues
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor: handle 401 Unauthorized globally if session expired
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const url = error.config?.url || '';
+      // Do not clear credentials on standard login/register validation rejections
+      if (!url.includes('/api/auth/login') && !url.includes('/api/auth/register')) {
+        try {
+          localStorage.removeItem('mediflow_token');
+          localStorage.removeItem('token');
+          localStorage.removeItem('mediflow_user');
+        } catch {
+          // Ignore
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // -----------------------------------------------------------------------------
 // Health Check Service
 // -----------------------------------------------------------------------------

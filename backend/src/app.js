@@ -19,28 +19,55 @@ const app = express();
 // Trust reverse proxies (Render, Vercel, Cloudflare, Nginx) for secure cookie forwarding
 app.set('trust proxy', 1);
 
-// Configure dynamic CORS supporting single origin, comma-separated staging/prod domains, or localhost
-const rawOrigins = process.env.CLIENT_URL || 'http://localhost:5173';
-const allowedOrigins = rawOrigins.split(',').map((o) => o.trim().replace(/\/$/, ''));
+// Configure dynamic CORS supporting production Vercel app, local development, and custom CLIENT_URL
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5000',
+  'https://mediflow-ai-app.vercel.app',
+];
+
+const customOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+const allowedOrigins = [...new Set([...DEFAULT_ALLOWED_ORIGINS, ...customOrigins])];
+
+const isOriginAllowed = (origin) => {
+  // Allow requests with no origin (e.g. mobile apps, curl, server-to-server health checks)
+  if (!origin) return true;
+
+  // Exact match or wildcard in allowed origins list
+  if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    return true;
+  }
+
+  // Support Vercel deployment preview/branch URLs for mediflow-ai-app
+  if (/^https:\/\/mediflow-ai-app(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) {
+    return true;
+  }
+
+  // Allow localhost/127.0.0.1 variants in development or staging
+  if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+    return true;
+  }
+
+  return false;
+};
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server health checks)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
-
-      // Allow localhost variants in development or staging
-      if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-        return callback(null, true);
-      }
-
       return callback(new Error(`CORS policy rejection: Origin '${origin}' is not authorized.`));
     },
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    optionsSuccessStatus: 204,
   })
 );
 

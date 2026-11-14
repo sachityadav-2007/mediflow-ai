@@ -46,7 +46,7 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: CLIENT_URL
-        sync: false
+        value: https://mediflow-ai-app.vercel.app,http://localhost:5173
       - key: ML_SERVICE_URL
         value: https://mediflow-ml-service.onrender.com
       - key: ML_SERVICE_SECRET

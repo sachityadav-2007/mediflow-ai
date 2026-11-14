@@ -11,6 +11,19 @@ export const socket = io(SOCKET_SERVER_URL, {
   reconnectionAttempts: 10,
   reconnectionDelay: 2000,
   transports: ['websocket', 'polling'], // Fallback transport
+  auth: (cb) => {
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('mediflow_token') ||
+            localStorage.getItem('token') ||
+            ''
+          : '';
+      cb({ token });
+    } catch {
+      cb({ token: '' });
+    }
+  },
 });
 
 // Basic client connection logging

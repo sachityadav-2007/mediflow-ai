@@ -4,17 +4,34 @@ let ioInstance = null;
 
 // Initialize Socket.IO with HTTP server, dynamic CORS settings, and room management
 function initSocket(server) {
-  const rawOrigins = process.env.CLIENT_URL || 'http://localhost:5173';
-  const allowedOrigins = rawOrigins.split(',').map((o) => o.trim().replace(/\/$/, ''));
+  const DEFAULT_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:5000',
+    'https://mediflow-ai-app.vercel.app',
+  ];
+
+  const customOrigins = (process.env.CLIENT_URL || '')
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+  const allowedOrigins = [...new Set([...DEFAULT_ALLOWED_ORIGINS, ...customOrigins])];
+
+  const isOriginAllowed = (origin) => {
+    if (!origin) return true;
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) return true;
+    if (/^https:\/\/mediflow-ai-app(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) return true;
+    if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+      return true;
+    }
+    return false;
+  };
 
   ioInstance = new Server(server, {
     cors: {
       origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-          return callback(null, true);
-        }
-        if (process.env.NODE_ENV !== 'production' && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        if (isOriginAllowed(origin)) {
           return callback(null, true);
         }
         return callback(new Error(`Socket CORS rejection: Origin '${origin}' is not authorized.`));

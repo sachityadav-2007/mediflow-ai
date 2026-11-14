@@ -16,14 +16,23 @@ class MLServiceClient {
     this.secret = ML_SERVICE_SECRET;
   }
 
+  getBaseUrl() {
+    return new URL(process.env.ML_SERVICE_URL || 'http://localhost:5002');
+  }
+
+  getSecret() {
+    return process.env.ML_SERVICE_SECRET || 'mediflow_internal_ml_service_secret_2026';
+  }
+
   /**
    * Internal HTTP request helper with timeout and json parsing
    */
   _request(method, path, body = null, requireAuth = true) {
     return new Promise((resolve, reject) => {
+      const url = this.getBaseUrl();
       const options = {
-        hostname: this.baseUrl.hostname,
-        port: this.baseUrl.port || 5002,
+        hostname: url.hostname,
+        port: url.port || 5002,
         path: path,
         method: method,
         timeout: TIMEOUT_MS,
@@ -34,7 +43,7 @@ class MLServiceClient {
       };
 
       if (requireAuth) {
-        options.headers['X-Internal-Token'] = this.secret;
+        options.headers['X-Internal-Token'] = this.getSecret();
       }
 
       const req = http.request(options, (res) => {

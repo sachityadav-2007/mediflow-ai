@@ -329,9 +329,18 @@ const getLiveQueue = async (doctorId, isPublic = false) => {
 
   // Calculate queue positions and estimated wait times
   const duration = doctor.consultationDuration || 30;
+  let presenceOffset = 0;
+  if (doctor.currentPresence === 'IN_CONSULTATION') {
+    presenceOffset = 5;
+  } else if (doctor.currentPresence === 'AWAY' || doctor.currentPresence === 'ON_BREAK') {
+    presenceOffset = 15;
+  } else if (doctor.currentPresence === 'OFFLINE' || doctor.currentPresence === 'ON_LEAVE') {
+    presenceOffset = 25;
+  }
+
   const enrichedCheckedIn = checkedInQueue.map((item, idx) => {
     const position = idx + 1;
-    const estWait = position * Math.round(duration * 0.75);
+    const estWait = Math.max(5, position * Math.round(duration * 0.75) + presenceOffset);
     return {
       ...item,
       queuePosition: position,

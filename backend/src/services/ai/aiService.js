@@ -149,26 +149,6 @@ const getWaitTime = async (doctorId, date, startTime = '10:00') => {
   if (cached) return { ...cached, isCached: true };
 
   const result = await estimateWaitingTime(doctorId, date, startTime);
-
-  // Advisory ML Microservice Query
-  try {
-    const doctor = await prisma.doctor.findUnique({
-      where: { id: doctorId },
-      select: { department: true },
-    });
-    const hour = startTime && startTime.includes(':') ? parseInt(startTime.split(':')[0], 10) : 10;
-    const mlAdvisory = await mlServiceClient.predictWaitingTime({
-      doctorId,
-      department: doctor?.department || 'General Medicine',
-      hourOfDay: hour,
-      queueLengthAhead: result.queuePosition || 0,
-      priorityLevel: 'MEDIUM',
-    });
-    result.mlAdvisory = mlAdvisory;
-  } catch (err) {
-    result.mlAdvisory = { status: 'insufficient_data', source: 'ml-service-offline' };
-  }
-
   setCached(cacheKey, result);
 
   logPrediction({

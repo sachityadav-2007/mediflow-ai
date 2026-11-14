@@ -716,12 +716,29 @@ function BookAppointmentPage() {
                             <span className="text-slate-500 block text-[10px] uppercase font-bold">
                               Expected Clinic Wait
                             </span>
-                            <span className="font-bold text-indigo-900">
-                              {aiInsight.waitTime?.formattedWaitRange || '~5 - 10 mins'} (Queue Pos #{aiInsight.waitTime?.queuePosition || 1})
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-indigo-900">
+                                {aiInsight.waitTime?.formattedWaitRange || '~5 - 10 mins'} (Queue Pos #{aiInsight.waitTime?.queuePosition || 1})
+                              </span>
+                              {aiInsight.waitTime?.source && (
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                                  aiInsight.waitTime.source === 'HYBRID_ML_QUEUE'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {aiInsight.waitTime.source === 'HYBRID_ML_QUEUE' ? 'Hybrid AI + Queue' : 'Queue Fallback'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
+
+                      {aiInsight.waitTime?.explanation && (
+                        <p className="text-[11px] text-slate-600 border-t border-indigo-100/80 pt-2 leading-relaxed">
+                          ⏱️ <em>{aiInsight.waitTime.explanation}</em>
+                        </p>
+                      )}
 
                       {aiInsight.availability?.explanation && (
                         <p className="text-[11px] text-slate-600 border-t border-indigo-100/80 pt-2 leading-relaxed">

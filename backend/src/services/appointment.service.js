@@ -824,10 +824,29 @@ const updateAppointmentStatus = async (appointmentId, userId, newStatus) => {
     );
   }
 
+  const now = new Date();
+  const updateData = { status: newStatus };
+
+  // Track clinical timestamps for waiting time calculations & ML training data
+  if (newStatus === 'CHECKED_IN' && !appointment.checkedInAt) {
+    updateData.checkedInAt = now;
+  } else if (newStatus === 'IN_PROGRESS' && !appointment.consultationStartedAt) {
+    updateData.consultationStartedAt = now;
+  } else if (newStatus === 'COMPLETED') {
+    if (!appointment.consultationCompletedAt) {
+      updateData.consultationCompletedAt = now;
+    }
+    const startTime = appointment.consultationStartedAt || appointment.checkedInAt || now;
+    const durationMin = Math.max(1, Math.round((now.getTime() - new Date(startTime).getTime()) / 60000));
+    if (!appointment.actualDurationMinutes) {
+      updateData.actualDurationMinutes = durationMin;
+    }
+  }
+
   const updatedAppointment = await prisma.$transaction(async (tx) => {
     const updated = await tx.appointment.update({
       where: { id: appointmentId },
-      data: { status: newStatus },
+      data: updateData,
       include: {
         patient: {
           include: {
@@ -837,6 +856,19 @@ const updateAppointmentStatus = async (appointmentId, userId, newStatus) => {
         slot: true,
       },
     });
+
+    // Auto-update doctor presence when starting or completing consultation
+    if (newStatus === 'IN_PROGRESS') {
+      await tx.doctor.update({
+        where: { id: appointment.doctorId },
+        data: { currentPresence: 'IN_CONSULTATION' },
+      });
+    } else if (newStatus === 'COMPLETED') {
+      await tx.doctor.update({
+        where: { id: appointment.doctorId },
+        data: { currentPresence: 'AVAILABLE' },
+      });
+    }
 
     // If doctor cancels the appointment, free up the slot
     if (newStatus === 'CANCELLED' && appointment.slotId) {
@@ -852,6 +884,19 @@ const updateAppointmentStatus = async (appointmentId, userId, newStatus) => {
   // Real-time broadcast via Socket.IO
   const io = getIO();
   if (io) {
+    // Notify queue screens that an appointment progressed
+    io.emit('queue_updated', {
+      doctorId: updatedAppointment.doctorId,
+      status: newStatus,
+    });
+
+    if (newStatus === 'IN_PROGRESS' || newStatus === 'COMPLETED') {
+      io.emit('doctor_status_changed', {
+        doctorId: updatedAppointment.doctorId,
+        presenceStatus: newStatus === 'IN_PROGRESS' ? 'IN_CONSULTATION' : 'AVAILABLE',
+      });
+    }
+
     if (newStatus === 'CANCELLED') {
       io.emit('appointment_cancelled', {
         appointmentId: updatedAppointment.id,

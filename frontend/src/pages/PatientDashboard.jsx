@@ -213,6 +213,7 @@ function PatientDashboard() {
   const secondaryUpcoming = upcomingAppointments.slice(1);
   const completedAppointments = appointments.filter((a) => a.status === 'COMPLETED');
   const activeWaitlists = waitlistEntries.filter((w) => w.status === 'PENDING');
+  const myQueueEntry = liveQueueData?.checkedInQueue?.find((item) => item.id === nextAppointment?.id);
 
   // Status Badge Helper
   const getStatusBadge = (status) => {
@@ -846,6 +847,12 @@ function PatientDashboard() {
                           'Doctor is currently between patients or cabin is ready.'
                         )}
                       </p>
+                      {myQueueEntry && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
+                          <span>🎫</span>
+                          <span>Your Token: <strong>#{myQueueEntry.appointmentNumber}</strong> &bull; Position: <strong>#{myQueueEntry.queuePosition}</strong></span>
+                        </div>
+                      )}
                     </div>
 
                     <Link to={`/queue/${liveQueueData.doctor?.id || nextAppointment?.doctorId}`}>
@@ -859,22 +866,34 @@ function PatientDashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-center">
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Patients Waiting
+                        {myQueueEntry ? 'Your Queue Position' : 'Patients Waiting'}
                       </p>
                       <p className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
-                        {liveQueueData.checkedInQueue?.length || 0}
+                        {myQueueEntry ? `#${myQueueEntry.queuePosition}` : (liveQueueData.checkedInQueue?.length || 0)}
                       </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Checked in at reception</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {myQueueEntry
+                          ? myQueueEntry.queuePosition === 1
+                            ? 'You are next in line!'
+                            : `${myQueueEntry.queuePosition - 1} patient(s) ahead`
+                          : 'Checked in at reception'}
+                      </p>
                     </div>
 
                     <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-center">
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        Est. Wait Velocity
+                        {myQueueEntry ? 'Your Est. Wait' : 'Est. Wait Velocity'}
                       </p>
                       <p className="text-xl sm:text-2xl font-black text-indigo-700 mt-0.5">
-                        ~{Math.max(5, (liveQueueData.checkedInQueue?.length || 0) * 12)} mins
+                        {myQueueEntry
+                          ? myQueueEntry.formattedWait
+                          : liveQueueData.checkedInQueue?.length
+                          ? `~${liveQueueData.checkedInQueue[liveQueueData.checkedInQueue.length - 1].estimatedWaitMinutes} mins`
+                          : '~5 mins'}
                       </p>
-                      <p className="text-[10px] text-slate-500 mt-0.5">Based on clinical pace</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {myQueueEntry ? 'Dynamic queue + doctor presence' : 'Based on clinical pace'}
+                      </p>
                     </div>
 
                     <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-center">

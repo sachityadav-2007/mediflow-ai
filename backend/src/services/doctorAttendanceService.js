@@ -4,6 +4,7 @@ const QRCode = require('qrcode');
 const prisma = require('../config/db');
 const { getIO } = require('../config/socket');
 const { createNotification, notifyAdmins } = require('./notificationService');
+const { checkAndNotifyWaitlistOpportunity } = require('./allocationService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'mediflow_ai_jwt_secret_dev_key';
 
@@ -487,6 +488,11 @@ const processDoctorCheckIn = async ({ token, doctorUser, ipAddress, userAgent })
   } catch (notifErr) {
     console.warn('Doctor check-in notification dispatch skipped:', notifErr.message);
   }
+
+  // Trigger opportunity check for active waitlist candidates
+  checkAndNotifyWaitlistOpportunity(doctor.id).catch((err) =>
+    console.warn('[DoctorAttendance] Waitlist opportunity check notice:', err.message)
+  );
 
   return {
     success: true,

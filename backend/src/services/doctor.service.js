@@ -1,6 +1,7 @@
 const prisma = require('../config/db');
 const { getIO } = require('../config/socket');
 const { clearCache } = require('./ai/aiService');
+const { checkAndNotifyWaitlistOpportunity } = require('./allocationService');
 
 // Valid days of week for schedule verification
 const VALID_DAYS = [
@@ -509,6 +510,13 @@ const updateDoctorPresence = async (doctorId, status, notes = '') => {
       doctorId: result.doctorId,
       status: result.currentPresence,
     });
+  }
+
+  // Check if doctor becoming available creates an allocation opportunity
+  if (result.currentPresence === 'AVAILABLE' || result.currentPresence === 'PRESENT') {
+    checkAndNotifyWaitlistOpportunity(result.doctorId).catch((err) =>
+      console.warn('[DoctorService] Waitlist opportunity check notice:', err.message)
+    );
   }
 
   return result;

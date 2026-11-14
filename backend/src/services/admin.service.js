@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { calculatePriorityScore, explainScore } = require('./priorityService');
 
 /**
  * Admin Service — MediFlow AI Phase 8
@@ -487,24 +488,54 @@ const getWaitlistEntries = async ({ status, doctorId } = {}) => {
     ],
   });
 
-  return entries.map((entry) => ({
-    id: entry.id,
-    patientId: entry.patientId,
-    patientName: entry.patient?.user?.name || 'Unknown Patient',
-    patientEmail: entry.patient?.user?.email || 'N/A',
-    patientPhone: entry.patient?.user?.phone || 'N/A',
-    doctorId: entry.doctorId,
-    doctorName: entry.doctor?.user?.name || 'Unknown Doctor',
-    specialization: entry.doctor?.specialization || 'General',
-    preferredDate: entry.preferredDate,
-    medicalPriority: entry.priority,
-    urgency: entry.urgency,
-    priorityScore: entry.priorityScore,
-    status: entry.status,
-    notes: entry.notes || '',
-    createdAt: entry.createdAt,
-    updatedAt: entry.updatedAt,
-  }));
+  const now = new Date();
+  const scoredEntries = entries.map((entry) => {
+    const currentScore = calculatePriorityScore({
+      priority: entry.priority,
+      urgency: entry.urgency,
+      createdAt: entry.createdAt,
+      now,
+    });
+    const explanation = explainScore({
+      priority: entry.priority,
+      urgency: entry.urgency,
+      createdAt: entry.createdAt,
+      now,
+    });
+
+    return {
+      id: entry.id,
+      patientId: entry.patientId,
+      patientName: entry.patient?.user?.name || 'Unknown Patient',
+      patientEmail: entry.patient?.user?.email || 'N/A',
+      patientPhone: entry.patient?.user?.phone || 'N/A',
+      doctorId: entry.doctorId,
+      doctorName: entry.doctor?.user?.name || 'Unknown Doctor',
+      specialization: entry.doctor?.specialization || 'General',
+      department: entry.doctor?.department || 'General Medicine',
+      preferredDate: entry.preferredDate,
+      medicalPriority: entry.priority,
+      urgency: entry.urgency,
+      priorityScore: currentScore,
+      explanation,
+      status: entry.status,
+      notes: entry.notes || '',
+      createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
+    };
+  });
+
+  // Sort: PENDING first (by priority score DESC, then creation date ASC), then historical
+  scoredEntries.sort((a, b) => {
+    if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+    if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+    if (b.priorityScore !== a.priorityScore) {
+      return b.priorityScore - a.priorityScore;
+    }
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+
+  return scoredEntries;
 };
 
 module.exports = {

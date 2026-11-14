@@ -225,6 +225,15 @@ function PatientWaitlistPage() {
                     </div>
                   </div>
 
+                  {entry.explanation?.formula && isPending && (
+                    <div className="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-[11px] text-indigo-900 flex items-center gap-2">
+                      <span>💡</span>
+                      <span>
+                        <strong>Priority Breakdown:</strong> {entry.explanation.formula} ({entry.explanation.summary})
+                      </span>
+                    </div>
+                  )}
+
                   {entry.status === 'ALLOCATED' && (
                     <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between">
                       <span className="font-semibold">

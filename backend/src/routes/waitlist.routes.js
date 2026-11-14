@@ -5,6 +5,7 @@ const {
   getDoctorWaitlist,
   leaveWaitlist,
   allocateSlot,
+  getRecommendations,
 } = require('../controllers/waitlist.controller');
 const {
   authenticateUser,
@@ -12,6 +13,17 @@ const {
 } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+
+// -----------------------------------------------------------------------------
+// Recommendations Route (Static GET must be before parameterized routes)
+// -----------------------------------------------------------------------------
+// Get intelligent allocation recommendations for open slots (ADMIN or DOCTOR)
+router.get(
+  '/recommendations',
+  authenticateUser,
+  authorizeRoles('ADMIN', 'DOCTOR'),
+  getRecommendations
+);
 
 // -----------------------------------------------------------------------------
 // Patient Waitlist Routes
@@ -34,7 +46,7 @@ router.get('/doctor/my', authenticateUser, authorizeRoles('DOCTOR'), getDoctorWa
 // -----------------------------------------------------------------------------
 // Smart Allocation Trigger Route
 // -----------------------------------------------------------------------------
-// Trigger smart allocation of an open slot (ADMIN or DOCTOR for viva demonstration)
+// Trigger smart allocation of an open slot (ADMIN or DOCTOR)
 router.post('/allocate', authenticateUser, authorizeRoles('ADMIN', 'DOCTOR'), allocateSlot);
 
 module.exports = router;

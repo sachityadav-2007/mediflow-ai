@@ -187,9 +187,15 @@ export const leaveWaitlist = async (waitlistId) => {
   return response.data;
 };
 
-// Trigger smart allocation demonstration (Admin/Doctor)
+// Trigger smart allocation execution (Admin/Doctor)
 export const triggerSmartAllocation = async (allocationData) => {
   const response = await api.post('/api/waitlist/allocate', allocationData);
+  return response.data;
+};
+
+// Discover intelligent allocation recommendations for open slots (Admin/Doctor)
+export const getAllocationRecommendations = async (params = {}) => {
+  const response = await api.get('/api/waitlist/recommendations', { params });
   return response.data;
 };
 

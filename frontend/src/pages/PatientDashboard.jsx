@@ -406,6 +406,17 @@ function PatientDashboard() {
                   </Button>
                 </Link>
 
+                <Link to="/waitlist">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<span>⏳</span>}
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 focus:ring-white/40"
+                  >
+                    Smart Waitlist
+                  </Button>
+                </Link>
+
                 <Link to="/my-appointments">
                   <Button
                     variant="outline"
@@ -1339,6 +1350,11 @@ function PatientDashboard() {
                             <p className="text-[11px] text-amber-800 font-medium">
                               Priority Tier: {w.priority} &bull; Clinical Triage Active
                             </p>
+                            {w.explanation?.formula && (
+                              <p className="text-[10px] text-indigo-700 font-mono mt-0.5">
+                                💡 Formula: {w.explanation.formula}
+                              </p>
+                            )}
                           </div>
 
                           <div className="shrink-0">

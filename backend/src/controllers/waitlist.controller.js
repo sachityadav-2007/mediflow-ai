@@ -1,5 +1,5 @@
 const waitlistService = require('../services/waitlist.service');
-const { smartAllocateSlot } = require('../services/allocationService');
+const { smartAllocateSlot, getAllocationRecommendations } = require('../services/allocationService');
 
 /**
  * POST /api/waitlist
@@ -117,12 +117,33 @@ const leaveWaitlist = async (req, res) => {
 };
 
 /**
+ * GET /api/waitlist/recommendations
+ * Discover smart allocation recommendations for open slots (ADMIN / DOCTOR)
+ */
+const getRecommendations = async (req, res) => {
+  try {
+    const { doctorId, appointmentDate } = req.query;
+    const recommendations = await getAllocationRecommendations({
+      doctorId,
+      appointmentDate,
+    });
+    return res.status(200).json(recommendations);
+  } catch (error) {
+    console.error('Error in getRecommendations:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retrieve allocation recommendations.',
+    });
+  }
+};
+
+/**
  * POST /api/waitlist/allocate
  * Trigger smart allocation of an open slot (ADMIN / Authorized system workflow)
  */
 const allocateSlot = async (req, res) => {
   try {
-    const { doctorId, appointmentDate, startTime, endTime } = req.body;
+    const { doctorId, appointmentDate, startTime, endTime, waitlistId } = req.body;
 
     if (!doctorId) {
       return res.status(400).json({
@@ -141,6 +162,7 @@ const allocateSlot = async (req, res) => {
       appointmentDate: targetDate,
       startTime: targetStart,
       endTime: targetEnd,
+      waitlistId,
     });
 
     return res.status(200).json(result);
@@ -163,5 +185,6 @@ module.exports = {
   getDoctorWaitlist,
   leaveWaitlist,
   allocateSlot,
+  getRecommendations,
 };
 

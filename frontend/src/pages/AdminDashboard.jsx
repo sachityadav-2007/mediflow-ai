@@ -10,6 +10,7 @@ import {
   getAdminAppointments,
   getAdminWaitlist,
   triggerSmartAllocation,
+  getAllocationRecommendations,
   generateHospitalQR,
   revokeHospitalQR,
   getActiveHospitalQRCodes,
@@ -164,6 +165,27 @@ function AdminDashboard({ initialTab = 'overview' }) {
     }
   }, [waitlistFilters]);
 
+  // Smart Allocation Recommendations state
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [allocatingKey, setAllocatingKey] = useState(null);
+
+  const fetchRecommendations = useCallback(async (docId = waitlistFilters.doctorId) => {
+    setLoadingRecommendations(true);
+    try {
+      const params = {};
+      if (docId && docId !== 'ALL') params.doctorId = docId;
+      const res = await getAllocationRecommendations(params);
+      if (res?.success) {
+        setRecommendations(res.recommendations || []);
+      }
+    } catch (err) {
+      console.warn('Failed to load allocation recommendations:', err.message);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  }, [waitlistFilters.doctorId]);
+
   // Load all data on mount
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -175,13 +197,14 @@ function AdminDashboard({ initialTab = 'overview' }) {
         fetchPatients(),
         fetchAppointments(),
         fetchWaitlist(),
+        fetchRecommendations(),
       ]);
     } catch (err) {
       setError(err.message || 'Failed to load admin dashboard data.');
     } finally {
       setLoading(false);
     }
-  }, [fetchStats, fetchDoctors, fetchPatients, fetchAppointments, fetchWaitlist]);
+  }, [fetchStats, fetchDoctors, fetchPatients, fetchAppointments, fetchWaitlist, fetchRecommendations]);
 
   useEffect(() => {
     loadAllData();
@@ -241,11 +264,40 @@ function AdminDashboard({ initialTab = 'overview' }) {
         fetchStats();
         fetchAppointments();
         fetchWaitlist();
+        fetchRecommendations();
       }
     } catch (err) {
       showToast(err.response?.data?.message || 'Smart allocation failed.', 'error');
     } finally {
       setAllocationLoading(false);
+    }
+  };
+
+  const handleConfirmRecommendation = async (rec, key) => {
+    setAllocatingKey(key);
+    try {
+      const res = await triggerSmartAllocation({
+        doctorId: rec.slot.doctorId,
+        appointmentDate: rec.slot.date,
+        startTime: rec.slot.startTime,
+        endTime: rec.slot.endTime,
+        waitlistId: rec.recommendedPatient.waitlistId,
+      });
+
+      if (res?.success) {
+        showToast(
+          `Slot (${rec.slot.startTime}) successfully allocated to ${rec.recommendedPatient.patientName}!`,
+          'success'
+        );
+        fetchStats();
+        fetchAppointments();
+        fetchWaitlist();
+        fetchRecommendations();
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Allocation failed', 'error');
+    } finally {
+      setAllocatingKey(null);
     }
   };
 
@@ -266,12 +318,20 @@ function AdminDashboard({ initialTab = 'overview' }) {
     fetchStats();
     fetchDoctors();
     fetchAttendanceData();
+    fetchRecommendations();
+  });
+
+  useSocket('waitlist_opportunity_detected', (data) => {
+    showToast(`⚡ Real-time: Waitlist allocation opportunity detected for Dr. ${data?.doctorName || 'Doctor'}!`, 'info');
+    fetchRecommendations();
+    fetchWaitlist();
   });
 
   useSocket('appointment_created', (data) => {
     showToast(`⚡ Real-time: New appointment booked (${data?.appointmentNumber || 'New'})`, 'info');
     fetchStats();
     fetchAppointments();
+    fetchRecommendations();
   });
 
   useSocket('appointment_cancelled', (data) => {
@@ -279,12 +339,14 @@ function AdminDashboard({ initialTab = 'overview' }) {
     fetchStats();
     fetchAppointments();
     fetchWaitlist();
+    fetchRecommendations();
   });
 
   useSocket('waitlist_updated', () => {
     showToast('⚡ Real-time: Waitlist updated', 'info');
     fetchStats();
     fetchWaitlist();
+    fetchRecommendations();
   });
 
   useSocket('appointment_allocated', (data) => {
@@ -292,6 +354,7 @@ function AdminDashboard({ initialTab = 'overview' }) {
     fetchStats();
     fetchAppointments();
     fetchWaitlist();
+    fetchRecommendations();
   });
 
   // Doctor Attendance & QR Data Fetcher
@@ -1394,6 +1457,128 @@ function AdminDashboard({ initialTab = 'overview' }) {
               </div>
             </div>
 
+            {/* Smart Allocation Recommendations & Available Slots */}
+            <div className="p-5 bg-gradient-to-r from-purple-50 via-indigo-50/50 to-blue-50/40 rounded-2xl border border-purple-200/80 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    <span>⚡</span>
+                    <span>Smart Allocation Recommendations</span>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                      {recommendations.length} Detected Opportunity{recommendations.length === 1 ? '' : 'ies'}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Live match engine pairing available clinic slots with the highest-ranked waitlisted patients.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => fetchRecommendations()}
+                  disabled={loadingRecommendations}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+                >
+                  <span className={loadingRecommendations ? 'animate-spin' : ''}>🔄</span>
+                  {loadingRecommendations ? 'Scanning...' : 'Refresh Matches'}
+                </button>
+              </div>
+
+              {loadingRecommendations ? (
+                <div className="py-8 text-center text-xs text-gray-500">
+                  <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  Scanning doctor schedules and computing candidate compatibility...
+                </div>
+              ) : recommendations.length === 0 ? (
+                <div className="p-4 bg-white/80 rounded-xl border border-purple-100 text-xs text-gray-600 flex items-center gap-3">
+                  <span className="text-xl">✅</span>
+                  <div>
+                    <strong className="text-gray-800 block">No Unallocated Open Slots Detected</strong>
+                    <span>All active waitlist patients are currently matched or no open slots match pending requests. When a doctor checks in or an appointment cancels, matches appear here.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {recommendations.map((rec, idx) => {
+                    const cardKey = `${rec.slot.doctorId}-${rec.slot.startTime}`;
+                    const isAllocatingThis = allocatingKey === cardKey;
+
+                    return (
+                      <div
+                        key={idx}
+                        className="p-4 bg-white rounded-xl border border-purple-200 shadow-xs hover:shadow-md transition space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-bold text-gray-900">
+                                Dr. {rec.slot.doctorName}
+                              </span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-purple-100 text-purple-800">
+                                {rec.slot.specialization}
+                              </span>
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                                {rec.slot.doctorPresence}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              📅 <strong>{rec.slot.date}</strong> &bull; Slot: <strong className="text-indigo-700 font-mono">{rec.slot.startTime} - {rec.slot.endTime}</strong> ({rec.slot.roomNumber})
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Top Score</span>
+                            <span className="text-lg font-black text-purple-700 font-mono">
+                              {rec.recommendedPatient.priorityScore} pts
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Recommended Patient Info */}
+                        <div className="p-3 bg-purple-50/60 rounded-lg border border-purple-100 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <span className="text-[10px] font-bold text-purple-900 uppercase">Recommended Candidate</span>
+                              <p className="text-xs font-bold text-gray-900">
+                                {rec.recommendedPatient.patientName}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {getPriorityBadge(rec.recommendedPatient.medicalPriority)}
+                              {getPriorityBadge(rec.recommendedPatient.urgency)}
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-gray-600">
+                            ⏱️ <em>{rec.recommendedPatient.waitDuration}</em> &bull; {rec.recommendedPatient.explanation?.formula}
+                          </p>
+
+                          <div className="flex items-center gap-3 text-[10px] text-gray-500 pt-1 border-t border-purple-100/80">
+                            <span className="text-emerald-700 font-medium">✓ Doctor Match</span>
+                            <span className="text-emerald-700 font-medium">✓ Department Match</span>
+                            <span className="text-emerald-700 font-medium">✓ No Time Conflict</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-gray-500">
+                            Eligible candidates: <strong>{rec.eligibleCount}</strong>
+                          </span>
+
+                          <button
+                            onClick={() => handleConfirmRecommendation(rec, cardKey)}
+                            disabled={isAllocatingThis}
+                            className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-xs flex items-center gap-1"
+                          >
+                            <span>{isAllocatingThis ? 'Allocating...' : '⚡ Confirm Allocation'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {waitlist.length === 0 ? (
               <div className="py-12 text-center text-gray-400">
                 <span className="text-4xl">⏳</span>
@@ -1431,10 +1616,15 @@ function AdminDashboard({ initialTab = 'overview' }) {
                         <td className="py-3 px-4">{getPriorityBadge(entry.medicalPriority)}</td>
                         <td className="py-3 px-4">{getPriorityBadge(entry.urgency)}</td>
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-1 rounded-md text-xs font-black bg-purple-100 text-purple-900 border border-purple-200">
+                          <div className="flex flex-col gap-1">
+                            <span className="w-fit px-2.5 py-1 rounded-md text-xs font-black bg-purple-100 text-purple-900 border border-purple-200">
                               {entry.priorityScore} pts
                             </span>
+                            {entry.explanation?.formula && (
+                              <span className="text-[10px] text-gray-500 font-mono" title={entry.explanation.summary}>
+                                {entry.explanation.formula}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="py-3 px-4 text-xs text-gray-500">

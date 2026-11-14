@@ -1280,6 +1280,14 @@ function DoctorDashboard() {
                             <span className="font-mono font-bold text-indigo-700 text-xs bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
                               {score} pts
                             </span>
+                            {entry.explanation?.formula && (
+                              <span
+                                className="text-[10px] text-slate-500 font-mono block mt-1 max-w-[200px] truncate"
+                                title={entry.explanation.summary || entry.explanation.formula}
+                              >
+                                {entry.explanation.formula}
+                              </span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4">
                             <Badge

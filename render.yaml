@@ -49,10 +49,7 @@ services:
       - key: CLIENT_URL
         value: https://mediflow-frontend.onrender.com,https://mediflow.vercel.app
       - key: ML_SERVICE_URL
-        fromService:
-          type: web
-          name: mediflow-ml-service
-          property: url
+        value: https://mediflow-ml-service.onrender.com
       - key: ML_SERVICE_SECRET
         fromService:
           type: web
@@ -74,10 +71,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: mediflow-api
-          property: url
+        value: https://mediflow-api.onrender.com
 
 # -----------------------------------------------------------------------------
 # 4. Managed Production PostgreSQL Database

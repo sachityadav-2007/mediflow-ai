@@ -1,5 +1,16 @@
-const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
+let PrismaClient;
+try {
+  PrismaClient = require('@prisma/client').PrismaClient;
+} catch (e) {
+  PrismaClient = require('../backend/node_modules/@prisma/client').PrismaClient;
+}
+
+let bcrypt;
+try {
+  bcrypt = require('bcryptjs');
+} catch (e) {
+  bcrypt = require('../backend/node_modules/bcryptjs');
+}
 
 const prisma = new PrismaClient();
 

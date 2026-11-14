@@ -1,6 +1,7 @@
 # =============================================================================
 # MediFlow AI — Render Cloud Infrastructure Blueprint
-# Deploys PostgreSQL 16, Express API + Socket.IO, FastAPI ML Service & React SPA
+# Deploys Express API + Socket.IO Backend & FastAPI ML Inference Service
+# Database: Neon Serverless PostgreSQL | Frontend: Vercel
 # =============================================================================
 services:
   # ---------------------------------------------------------------------------
@@ -12,7 +13,7 @@ services:
     plan: free
     region: oregon
     buildCommand: pip install -r ml-service/requirements.txt
-    startCommand: uvicorn app.main:app --app-dir ml-service --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --app-dir ml-service --host 0.0.0.0 --port ${PORT:-5002}
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
@@ -36,18 +37,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5001
       - key: DATABASE_URL
-        fromDatabase:
-          name: mediflow-db
-          property: connectionString
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: CLIENT_URL
-        value: https://mediflow-frontend.onrender.com,https://mediflow.vercel.app
+        sync: false
       - key: ML_SERVICE_URL
         value: https://mediflow-ml-service.onrender.com
       - key: ML_SERVICE_SECRET
@@ -55,30 +54,3 @@ services:
           type: web
           name: mediflow-ml-service
           envVarKey: ML_SERVICE_SECRET
-
-  # ---------------------------------------------------------------------------
-  # 3. React 18 + Vite Frontend SPA (Render Global Edge CDN)
-  # ---------------------------------------------------------------------------
-  - type: web
-    name: mediflow-frontend
-    runtime: static
-    buildCommand: npm --prefix frontend install && npm --prefix frontend run build
-    staticPublishPath: frontend/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        value: https://mediflow-api.onrender.com
-
-# -----------------------------------------------------------------------------
-# 4. Managed Production PostgreSQL Database
-# -----------------------------------------------------------------------------
-databases:
-  - name: mediflow-db
-    databaseName: mediflow_ai
-    user: mediflow_user
-    plan: free
-    region: oregon
-    postgresMajorVersion: 16

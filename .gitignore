@@ -69,3 +69,4 @@ ENV/
 coverage/
 .coverage
 htmlcov/
+.neon

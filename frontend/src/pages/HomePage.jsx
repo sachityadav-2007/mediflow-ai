@@ -43,10 +43,25 @@ function HomePage() {
   // Real-time Socket.IO presence updates
   useSocket('doctor_status_changed', (data) => {
     if (data?.doctorId) {
+      const nextStatus = data.presenceStatus || data.status;
       setDoctors((prev) =>
         prev.map((doc) =>
           doc.id === data.doctorId
-            ? { ...doc, currentPresence: data.presenceStatus }
+            ? { ...doc, currentPresence: nextStatus }
+            : doc
+        )
+      );
+    }
+  });
+
+  useSocket('doctor_attendance_updated', (data) => {
+    if (data?.doctorId) {
+      const nextStatus =
+        data.action === 'CHECK_OUT' ? 'OFFLINE' : data.presenceStatus || 'PRESENT';
+      setDoctors((prev) =>
+        prev.map((doc) =>
+          doc.id === data.doctorId
+            ? { ...doc, currentPresence: nextStatus }
             : doc
         )
       );

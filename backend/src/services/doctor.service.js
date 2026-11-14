@@ -13,8 +13,17 @@ const VALID_DAYS = [
   'SUNDAY',
 ];
 
-// Valid presence statuses
-const VALID_PRESENCE_STATUSES = ['PRESENT', 'AWAY', 'BUSY', 'OFFLINE'];
+// Valid presence statuses from Prisma schema
+const VALID_PRESENCE_STATUSES = [
+  'PRESENT',
+  'AWAY',
+  'BUSY',
+  'OFFLINE',
+  'AVAILABLE',
+  'IN_CONSULTATION',
+  'ON_BREAK',
+  'ON_LEAVE',
+];
 
 /**
  * 1. Get all doctors with optional name search and specialization filter

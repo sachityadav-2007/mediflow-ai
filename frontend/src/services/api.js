@@ -374,6 +374,12 @@ export const getAttendanceHistory = async (params = {}) => {
   return response.data;
 };
 
+// Admin or Doctor: Get basic presence analytics summary (Total, Present, In Consultation, Off Duty)
+export const getPresenceAnalytics = async () => {
+  const response = await api.get('/api/presence/analytics');
+  return response.data;
+};
+
 // -----------------------------------------------------------------------------
 // MediFlow AI 2.0: Genuine Machine Learning & Governance Services
 // -----------------------------------------------------------------------------

@@ -169,6 +169,22 @@ const getQRScanActivity = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/presence/analytics
+ * Summary analytics of doctor presence for administrators
+ */
+const getPresenceAnalytics = async (req, res) => {
+  try {
+    const result = await doctorAttendanceService.getPresenceAnalytics();
+    return res.status(200).json(result);
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to retrieve presence analytics.',
+    });
+  }
+};
+
 module.exports = {
   generateHospitalQR,
   revokeHospitalQR,
@@ -178,5 +194,6 @@ module.exports = {
   getDoctorMyAttendance,
   getAttendanceHistory,
   getQRScanActivity,
+  getPresenceAnalytics,
 };
 

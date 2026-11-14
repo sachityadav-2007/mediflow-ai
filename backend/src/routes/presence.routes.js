@@ -13,6 +13,7 @@ const {
   getDoctorMyAttendance,
   getAttendanceHistory,
   getQRScanActivity,
+  getPresenceAnalytics,
 } = require('../controllers/doctorAttendance.controller');
 const {
   authenticateUser,
@@ -65,6 +66,14 @@ router.get(
   authenticateUser,
   authorizeRoles('ADMIN', 'DOCTOR'),
   getAttendanceHistory
+);
+
+// Admin or Doctor: View basic presence analytics summary (Total, Present, In Consultation, Off Duty)
+router.get(
+  '/analytics',
+  authenticateUser,
+  authorizeRoles('ADMIN', 'DOCTOR'),
+  getPresenceAnalytics
 );
 
 // -----------------------------------------------------------------------------

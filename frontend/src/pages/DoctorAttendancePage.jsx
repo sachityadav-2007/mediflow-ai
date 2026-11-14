@@ -6,6 +6,7 @@ import {
   doctorCheckInQR,
   doctorCheckOutQR,
   getDoctorMyAttendance,
+  getAttendanceHistory,
 } from '../services/api';
 import { useSocket } from '../hooks/useSocket';
 import Button from '../components/ui/Button';
@@ -18,7 +19,10 @@ import LoadingSkeleton from '../components/ui/LoadingSkeleton';
 
 function DoctorAttendancePage() {
   const [attendanceData, setAttendanceData] = useState(null);
+  const [historyRecords, setHistoryRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [activeAttendanceView, setActiveAttendanceView] = useState('history'); // 'today' | 'history'
   const [actionLoading, setActionLoading] = useState(false);
   const [manualToken, setManualToken] = useState('');
   const [checkoutNotes, setCheckoutNotes] = useState('');
@@ -42,20 +46,38 @@ function DoctorAttendancePage() {
     }
   };
 
+  // Fetch doctor's recent attendance records across past shifts
+  const fetchMyHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await getAttendanceHistory({ limit: 25 });
+      if (res && res.success) {
+        setHistoryRecords(res.records || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch doctor attendance history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     fetchMyAttendance();
+    fetchMyHistory();
   }, []);
 
   // Real-time Socket.IO synchronization
   useSocket('doctor_status_changed', (data) => {
     if (!attendanceData?.doctor?.id || data?.doctorId === attendanceData.doctor.id) {
       fetchMyAttendance();
+      fetchMyHistory();
     }
   });
 
   useSocket('doctor_attendance_updated', (data) => {
     if (!attendanceData?.doctor?.id || data?.doctorId === attendanceData.doctor.id) {
       fetchMyAttendance();
+      fetchMyHistory();
     }
   });
 
@@ -155,6 +177,7 @@ function DoctorAttendancePage() {
         setManualToken('');
         setScannerActive(false);
         fetchMyAttendance();
+        fetchMyHistory();
       }
     } catch (err) {
       setActionMessage({
@@ -183,6 +206,7 @@ function DoctorAttendancePage() {
         setShowCheckoutModal(false);
         setCheckoutNotes('');
         fetchMyAttendance();
+        fetchMyHistory();
       }
     } catch (err) {
       setActionMessage({
@@ -430,85 +454,201 @@ function DoctorAttendancePage() {
           </Card>
         )}
 
-        {/* Today's Attendance Sessions Table */}
+        {/* Attendance Records Card with Recent History & Today's Shift Switcher */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <CardTitle>Today's Shift Attendance Logs</CardTitle>
-                <p className="text-xs text-slate-500 mt-0.5">Verified clinical sessions recorded for today.</p>
+                <CardTitle>Clinician Attendance &amp; Shift History</CardTitle>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  View recent attendance records, logged shift durations, and verification methods.
+                </p>
               </div>
-              <div className="text-right">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Total Shift Duration
-                </span>
-                <strong className="text-base font-black text-[#0072CE]">
-                  {formatDuration(totalMinutesToday)}
-                </strong>
+
+              {/* View Toggle Switcher */}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setActiveAttendanceView('history')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    activeAttendanceView === 'history'
+                      ? 'bg-white text-[#0072CE] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📜 Recent History ({historyRecords.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveAttendanceView('today')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    activeAttendanceView === 'today'
+                      ? 'bg-white text-[#0072CE] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📋 Today&apos;s Shifts ({todaySessions.length})
+                </button>
               </div>
             </div>
           </CardHeader>
 
           <CardContent className="p-0">
-            {todaySessions.length === 0 ? (
-              <div className="p-8">
-                <EmptyState
-                  icon="📋"
-                  title="No Shift Sessions Today"
-                  description="You have not clocked in for any clinical sessions today yet."
-                />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
-                      <th className="py-3 px-4">Location</th>
-                      <th className="py-3 px-4">Check-In</th>
-                      <th className="py-3 px-4">Check-Out</th>
-                      <th className="py-3 px-4">Duration</th>
-                      <th className="py-3 px-4">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {todaySessions.map((s) => (
-                      <tr key={s.id} className="hover:bg-slate-50 transition">
-                        <td className="py-3.5 px-4 font-bold text-slate-900">{s.location}</td>
-                        <td className="py-3.5 px-4 font-mono text-slate-600">
-                          {new Date(s.checkInTime).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono text-slate-600">
-                          {s.checkOutTime
-                            ? new Date(s.checkOutTime).toLocaleTimeString([], {
+            {activeAttendanceView === 'history' ? (
+              // -------------------------------------------------------------
+              // View 1: Recent Attendance History (Doctor's past shifts)
+              // -------------------------------------------------------------
+              loadingHistory ? (
+                <div className="p-8 text-center text-xs text-slate-400">Loading attendance history...</div>
+              ) : historyRecords.length === 0 ? (
+                <div className="p-8">
+                  <EmptyState
+                    icon="📜"
+                    title="No Attendance History"
+                    description="You do not have any historical attendance sessions logged yet."
+                  />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
+                        <th className="py-3 px-4">Date &amp; Check-In</th>
+                        <th className="py-3 px-4">Location</th>
+                        <th className="py-3 px-4">Check-Out</th>
+                        <th className="py-3 px-4">Duration</th>
+                        <th className="py-3 px-4">Method</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {historyRecords.map((r) => (
+                        <tr key={r.id} className="hover:bg-slate-50 transition">
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-slate-900 block">
+                              {new Date(r.checkInTime).toLocaleDateString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              {new Date(r.checkInTime).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
-                                second: '2-digit',
-                              })
-                            : 'Ongoing'}
-                        </td>
-                        <td className="py-3.5 px-4 font-bold text-[#0072CE]">
-                          {s.durationMinutes !== undefined && s.durationMinutes !== null
-                            ? formatDuration(s.durationMinutes)
-                            : 'In Progress'}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <Badge
-                            variant={s.status === 'CHECKED_IN' ? 'success' : 'neutral'}
-                            size="xs"
-                            dotPulse={s.status === 'CHECKED_IN'}
-                          >
-                            {s.status === 'CHECKED_IN' ? 'ACTIVE' : 'COMPLETED'}
-                          </Badge>
-                        </td>
+                              })}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-800">
+                            {r.location || 'Hospital OPD'}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-slate-600">
+                            {r.checkOutTime
+                              ? new Date(r.checkOutTime).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Ongoing'}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-[#0072CE]">
+                            {r.durationMinutes !== null && r.durationMinutes !== undefined
+                              ? formatDuration(r.durationMinutes)
+                              : 'In Progress'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                r.checkInMethod === 'QR_SCAN'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {r.checkInMethod === 'QR_SCAN' ? '📷 QR Verified' : '⌨️ Manual Entry'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <Badge
+                              variant={r.status === 'CHECKED_IN' ? 'success' : 'neutral'}
+                              size="xs"
+                              dotPulse={r.status === 'CHECKED_IN'}
+                            >
+                              {r.status === 'CHECKED_IN' ? 'ACTIVE' : 'COMPLETED'}
+                            </Badge>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 text-[11px] max-w-[180px] truncate">
+                            {r.notes || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : (
+              // -------------------------------------------------------------
+              // View 2: Today's Shift Sessions
+              // -------------------------------------------------------------
+              todaySessions.length === 0 ? (
+                <div className="p-8">
+                  <EmptyState
+                    icon="📋"
+                    title="No Shift Sessions Today"
+                    description="You have not clocked in for any clinical sessions today yet."
+                  />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-500 uppercase tracking-wider text-[10px] font-bold">
+                        <th className="py-3 px-4">Location</th>
+                        <th className="py-3 px-4">Check-In</th>
+                        <th className="py-3 px-4">Check-Out</th>
+                        <th className="py-3 px-4">Duration</th>
+                        <th className="py-3 px-4">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {todaySessions.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50 transition">
+                          <td className="py-3.5 px-4 font-bold text-slate-900">{s.location}</td>
+                          <td className="py-3.5 px-4 font-mono text-slate-600">
+                            {new Date(s.checkInTime).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            })}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-slate-600">
+                            {s.checkOutTime
+                              ? new Date(s.checkOutTime).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                })
+                              : 'Ongoing'}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-[#0072CE]">
+                            {s.durationMinutes !== undefined && s.durationMinutes !== null
+                              ? formatDuration(s.durationMinutes)
+                              : 'In Progress'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <Badge
+                              variant={s.status === 'CHECKED_IN' ? 'success' : 'neutral'}
+                              size="xs"
+                              dotPulse={s.status === 'CHECKED_IN'}
+                            >
+                              {s.status === 'CHECKED_IN' ? 'ACTIVE' : 'COMPLETED'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             )}
           </CardContent>
         </Card>

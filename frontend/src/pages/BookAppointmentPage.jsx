@@ -162,6 +162,36 @@ function BookAppointmentPage() {
     }
   });
 
+  // Real-time Socket.IO: live presence synchronization without page reload
+  useSocket('doctor_status_changed', (data) => {
+    if (data?.doctorId) {
+      const nextStatus = data.presenceStatus || data.status;
+      setDoctors((prev) =>
+        prev.map((doc) =>
+          doc.id === data.doctorId ? { ...doc, currentPresence: nextStatus } : doc
+        )
+      );
+      if (data.doctorId === selectedDoctorId) {
+        fetchSlots();
+      }
+    }
+  });
+
+  useSocket('doctor_attendance_updated', (data) => {
+    if (data?.doctorId) {
+      const nextStatus =
+        data.action === 'CHECK_OUT' ? 'OFFLINE' : data.presenceStatus || 'PRESENT';
+      setDoctors((prev) =>
+        prev.map((doc) =>
+          doc.id === data.doctorId ? { ...doc, currentPresence: nextStatus } : doc
+        )
+      );
+      if (data.doctorId === selectedDoctorId) {
+        fetchSlots();
+      }
+    }
+  });
+
   // Fetch AI predictive availability and wait-time estimate when slot is chosen
   useEffect(() => {
     if (!selectedDoctorId || !selectedDate || !selectedSlot?.startTime) {

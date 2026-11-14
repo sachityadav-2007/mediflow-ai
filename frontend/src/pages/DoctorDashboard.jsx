@@ -15,6 +15,7 @@ import {
   getDoctorForecast,
   updateConsultationState,
   getDoctorMyAttendance,
+  getAttendanceHistory,
   doctorCheckInQR,
   doctorCheckOutQR,
   getActiveHospitalQRCodes,
@@ -64,6 +65,7 @@ function DoctorDashboard() {
 
   // Smart Doctor Presence & Shift Terminal State
   const [attendanceData, setAttendanceData] = useState(null);
+  const [recentAttendanceRecords, setRecentAttendanceRecords] = useState([]);
   const [activeQRGates, setActiveQRGates] = useState([]);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [showCheckOutModal, setShowCheckOutModal] = useState(false);
@@ -178,9 +180,10 @@ function DoctorDashboard() {
   // Fetch doctor attendance status & active hospital QR gates
   const fetchAttendanceStatus = async () => {
     try {
-      const [attRes, qrRes] = await Promise.all([
+      const [attRes, qrRes, histRes] = await Promise.all([
         getDoctorMyAttendance().catch(() => null),
         getActiveHospitalQRCodes().catch(() => null),
+        getAttendanceHistory({ limit: 5 }).catch(() => null),
       ]);
       if (attRes?.success) {
         setAttendanceData(attRes);
@@ -190,6 +193,9 @@ function DoctorDashboard() {
       }
       if (qrRes?.success && qrRes.qrCodes) {
         setActiveQRGates(qrRes.qrCodes);
+      }
+      if (histRes?.success && histRes.records) {
+        setRecentAttendanceRecords(histRes.records);
       }
     } catch (err) {
       console.warn('Attendance synchronization notice:', err.message);
@@ -895,6 +901,83 @@ function DoctorDashboard() {
                 ⚪ OFFLINE (Shift End)
               </button>
             </div>
+          </div>
+
+          {/* Recent Attendance Records Quick View */}
+          <div className="pt-3 border-t border-slate-100 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span>📜</span>
+                <span>Recent Attendance Records</span>
+              </span>
+              <Link
+                to="/doctor/attendance"
+                className="text-[11px] font-semibold text-[#0072CE] hover:underline"
+              >
+                View Full Attendance Terminal &rarr;
+              </Link>
+            </div>
+
+            {recentAttendanceRecords.length === 0 ? (
+              <p className="text-xs text-slate-400 py-1">No past attendance records found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] text-slate-400 uppercase font-bold">
+                      <th className="py-2 px-3">Date</th>
+                      <th className="py-2 px-3">Location</th>
+                      <th className="py-2 px-3">Check-In</th>
+                      <th className="py-2 px-3">Check-Out</th>
+                      <th className="py-2 px-3">Duration</th>
+                      <th className="py-2 px-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {recentAttendanceRecords.slice(0, 4).map((rec) => (
+                      <tr key={rec.id} className="hover:bg-slate-50">
+                        <td className="py-2 px-3 font-semibold text-slate-800">
+                          {new Date(rec.checkInTime).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </td>
+                        <td className="py-2 px-3 text-slate-600 truncate max-w-[150px]">
+                          {rec.location}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-slate-500">
+                          {new Date(rec.checkInTime).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
+                        <td className="py-2 px-3 font-mono text-slate-500">
+                          {rec.checkOutTime
+                            ? new Date(rec.checkOutTime).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : 'Ongoing'}
+                        </td>
+                        <td className="py-2 px-3 font-bold text-[#0072CE]">
+                          {rec.durationMinutes !== null && rec.durationMinutes !== undefined
+                            ? `${rec.durationMinutes}m`
+                            : 'Active'}
+                        </td>
+                        <td className="py-2 px-3">
+                          <Badge
+                            variant={rec.status === 'CHECKED_IN' ? 'success' : 'neutral'}
+                            size="xs"
+                          >
+                            {rec.status === 'CHECKED_IN' ? 'ACTIVE' : 'COMPLETED'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </Card>
 

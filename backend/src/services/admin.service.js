@@ -74,12 +74,22 @@ const getHospitalStats = async () => {
       where: { status: 'PENDING' },
     }),
 
-    // Doctor Presence Counts
-    prisma.doctor.count({ where: { currentPresence: 'PRESENT' } }),
-    prisma.doctor.count({ where: { currentPresence: 'BUSY' } }),
-    prisma.doctor.count({ where: { currentPresence: 'AWAY' } }),
-    prisma.doctor.count({ where: { currentPresence: 'OFFLINE' } }),
+    // Doctor Presence Counts (incorporating clinical presence statuses)
+    prisma.doctor.count({
+      where: { currentPresence: { in: ['PRESENT', 'AVAILABLE'] } },
+    }),
+    prisma.doctor.count({
+      where: { currentPresence: { in: ['IN_CONSULTATION', 'BUSY'] } },
+    }),
+    prisma.doctor.count({
+      where: { currentPresence: { in: ['AWAY', 'ON_BREAK'] } },
+    }),
+    prisma.doctor.count({
+      where: { currentPresence: { in: ['OFFLINE', 'ON_LEAVE'] } },
+    }),
   ]);
+
+  const offDutyDoctors = doctorsAway + doctorsOffline;
 
   return {
     totalDoctors,
@@ -91,8 +101,16 @@ const getHospitalStats = async () => {
     activeWaitlistEntries,
     doctorsPresent,
     doctorsBusy,
+    doctorsInConsultation: doctorsBusy,
     doctorsAway,
     doctorsOffline,
+    offDutyDoctors,
+    presenceAnalytics: {
+      totalDoctors,
+      presentDoctors: doctorsPresent,
+      inConsultationDoctors: doctorsBusy,
+      offDutyDoctors,
+    },
   };
 };
 

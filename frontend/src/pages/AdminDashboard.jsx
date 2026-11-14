@@ -253,9 +253,19 @@ function AdminDashboard({ initialTab = 'overview' }) {
   // Real-Time Socket.IO Updates
   // ---------------------------------------------------------------------------
   useSocket('doctor_status_changed', (data) => {
-    showToast(`⚡ Real-time: Doctor status updated (${data?.status || 'changed'})`, 'info');
+    const statusLabel = data?.presenceStatus || data?.status || 'changed';
+    showToast(`⚡ Real-time: Doctor status updated (${statusLabel})`, 'info');
+    if (data?.doctorId && (data?.presenceStatus || data?.status)) {
+      const nextStatus = data.presenceStatus || data.status;
+      setDoctors((prev) =>
+        prev.map((doc) =>
+          doc.id === data.doctorId ? { ...doc, currentPresence: nextStatus } : doc
+        )
+      );
+    }
     fetchStats();
     fetchDoctors();
+    fetchAttendanceData();
   });
 
   useSocket('appointment_created', (data) => {
@@ -320,8 +330,17 @@ function AdminDashboard({ initialTab = 'overview' }) {
       `⚡ Real-time: Dr. ${data?.doctorName || ''} attendance updated (${data?.action || ''})`,
       'info'
     );
+    if (data?.doctorId) {
+      const nextStatus = data.action === 'CHECK_OUT' ? 'OFFLINE' : (data.presenceStatus || 'PRESENT');
+      setDoctors((prev) =>
+        prev.map((doc) =>
+          doc.id === data.doctorId ? { ...doc, currentPresence: nextStatus } : doc
+        )
+      );
+    }
     fetchAttendanceData();
     fetchStats();
+    fetchDoctors();
   });
 
   useSocket('hospital_qr_created', () => {
@@ -597,11 +616,11 @@ function AdminDashboard({ initialTab = 'overview' }) {
                   <div className="text-3xl font-extrabold text-gray-900">{stats.totalDoctors}</div>
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex flex-wrap gap-1">
-                  <span className="text-green-600 font-semibold">{stats.doctorsPresent} Present</span>
+                  <span className="text-green-600 font-semibold">{stats.presenceAnalytics?.presentDoctors ?? stats.doctorsPresent} Present</span>
                   <span>&bull;</span>
-                  <span className="text-yellow-600 font-semibold">{stats.doctorsBusy} Busy</span>
+                  <span className="text-yellow-600 font-semibold">{stats.presenceAnalytics?.inConsultationDoctors ?? stats.doctorsInConsultation ?? stats.doctorsBusy} In Consult</span>
                   <span>&bull;</span>
-                  <span className="text-gray-400 font-semibold">{stats.doctorsOffline} Off</span>
+                  <span className="text-gray-400 font-semibold">{stats.presenceAnalytics?.offDutyDoctors ?? stats.offDutyDoctors ?? stats.doctorsOffline} Off Duty</span>
                 </div>
               </div>
 
@@ -656,10 +675,16 @@ function AdminDashboard({ initialTab = 'overview' }) {
                     <span className="text-xs font-bold uppercase tracking-wider">Doctors Present</span>
                     <span className="text-xl">🟢</span>
                   </div>
-                  <div className="text-3xl font-extrabold text-green-600">{stats.doctorsPresent}</div>
+                  <div className="text-3xl font-extrabold text-green-600">
+                    {stats.presenceAnalytics?.presentDoctors ?? stats.doctorsPresent}
+                  </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-100 text-[11px] text-green-700 font-medium">
-                  Currently on hospital duty
+                <div className="mt-3 pt-3 border-t border-gray-100 text-[11px] text-gray-500 flex flex-wrap gap-1">
+                  <span className="text-green-700 font-semibold">● On Duty</span>
+                  <span>&bull;</span>
+                  <span className="text-yellow-600 font-semibold">
+                    {stats.presenceAnalytics?.inConsultationDoctors ?? stats.doctorsInConsultation ?? stats.doctorsBusy} In Consult
+                  </span>
                 </div>
               </div>
             </div>
@@ -905,6 +930,89 @@ function AdminDashboard({ initialTab = 'overview' }) {
         {/* ------------------------------------------------------------------- */}
         {activeTab === 'doctors' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
+            {/* Quick Presence Analytics Summary Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <button
+                type="button"
+                onClick={() => setDoctorPresenceFilter('ALL')}
+                className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                  doctorPresenceFilter === 'ALL'
+                    ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-400/20'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Total Doctors
+                </span>
+                <strong className="text-lg font-black text-slate-900 block mt-0.5">
+                  {stats?.presenceAnalytics?.totalDoctors ?? stats?.totalDoctors ?? doctors.length}
+                </strong>
+                <span className="text-[10px] text-slate-400">All registered clinicians</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDoctorPresenceFilter('PRESENT')}
+                className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                  doctorPresenceFilter === 'PRESENT'
+                    ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-400/20'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
+                  🟢 Currently Present
+                </span>
+                <strong className="text-lg font-black text-emerald-700 block mt-0.5">
+                  {stats?.presenceAnalytics?.presentDoctors ??
+                    stats?.doctorsPresent ??
+                    doctors.filter((d) => d.currentPresence === 'PRESENT' || d.currentPresence === 'AVAILABLE').length}
+                </strong>
+                <span className="text-[10px] text-emerald-600">On duty &amp; available</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDoctorPresenceFilter('IN_CONSULTATION')}
+                className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                  doctorPresenceFilter === 'IN_CONSULTATION'
+                    ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/20'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block">
+                  🟣 In Consultation
+                </span>
+                <strong className="text-lg font-black text-amber-700 block mt-0.5">
+                  {stats?.presenceAnalytics?.inConsultationDoctors ??
+                    stats?.doctorsInConsultation ??
+                    stats?.doctorsBusy ??
+                    doctors.filter((d) => d.currentPresence === 'IN_CONSULTATION' || d.currentPresence === 'BUSY').length}
+                </strong>
+                <span className="text-[10px] text-amber-600">Seeing patients</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDoctorPresenceFilter('OFFLINE')}
+                className={`p-3 rounded-xl border text-left transition cursor-pointer ${
+                  doctorPresenceFilter === 'OFFLINE'
+                    ? 'bg-slate-200 border-slate-400 ring-2 ring-slate-400/20'
+                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
+                  ⚪ Off Duty / Away
+                </span>
+                <strong className="text-lg font-black text-slate-700 block mt-0.5">
+                  {stats?.presenceAnalytics?.offDutyDoctors ??
+                    stats?.offDutyDoctors ??
+                    stats?.doctorsOffline ??
+                    doctors.filter((d) => ['OFFLINE', 'AWAY', 'ON_BREAK', 'ON_LEAVE'].includes(d.currentPresence)).length}
+                </strong>
+                <span className="text-[10px] text-slate-500">Offline / off duty</span>
+              </button>
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Hospital Medical Staff</h2>
@@ -1351,6 +1459,98 @@ function AdminDashboard({ initialTab = 'overview' }) {
         {/* =================================================================== */}
         {activeTab === 'attendance' && (
           <div className="space-y-6">
+            {/* Doctor Presence Analytics Summary (Total, Present, In Consultation, Off Duty) */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📊</span>
+                  <div>
+                    <h3 className="font-extrabold text-sm text-gray-900">
+                      Doctor Presence &amp; Shift Analytics
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Real-time clinical capacity, active consultations, and off-duty clinician metrics
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-xs font-semibold text-emerald-700 font-mono">Live Socket.IO Sync</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+                {/* 1. Total Doctors */}
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                    Total Doctors
+                  </span>
+                  <strong className="text-2xl font-black text-slate-900 mt-1 block">
+                    {stats?.presenceAnalytics?.totalDoctors ?? stats?.totalDoctors ?? doctors.length}
+                  </strong>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block">
+                    Registered hospital medical staff
+                  </span>
+                </div>
+
+                {/* 2. Currently Present Doctors */}
+                <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">
+                      Currently Present
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  </div>
+                  <strong className="text-2xl font-black text-emerald-700 mt-1 block">
+                    {stats?.presenceAnalytics?.presentDoctors ??
+                      stats?.doctorsPresent ??
+                      doctors.filter((d) => d.currentPresence === 'PRESENT' || d.currentPresence === 'AVAILABLE').length}
+                  </strong>
+                  <span className="text-[11px] text-emerald-700 mt-0.5 block font-medium">
+                    Verified on duty &amp; available
+                  </span>
+                </div>
+
+                {/* 3. Doctors in Consultation */}
+                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">
+                      In Consultation
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  </div>
+                  <strong className="text-2xl font-black text-amber-700 mt-1 block">
+                    {stats?.presenceAnalytics?.inConsultationDoctors ??
+                      stats?.doctorsInConsultation ??
+                      stats?.doctorsBusy ??
+                      doctors.filter((d) => d.currentPresence === 'IN_CONSULTATION' || d.currentPresence === 'BUSY').length}
+                  </strong>
+                  <span className="text-[11px] text-amber-700 mt-0.5 block font-medium">
+                    Actively consulting outpatient cases
+                  </span>
+                </div>
+
+                {/* 4. Doctors Off Duty */}
+                <div className="p-4 rounded-xl bg-slate-100 border border-slate-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
+                      Off Duty / Away
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                  </div>
+                  <strong className="text-2xl font-black text-slate-700 mt-1 block">
+                    {stats?.presenceAnalytics?.offDutyDoctors ??
+                      stats?.offDutyDoctors ??
+                      stats?.doctorsOffline ??
+                      doctors.filter((d) => ['OFFLINE', 'AWAY', 'ON_BREAK', 'ON_LEAVE'].includes(d.currentPresence)).length}
+                  </strong>
+                  <span className="text-[11px] text-slate-500 mt-0.5 block font-medium">
+                    Shift ended or on break
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Top KPI Summary Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">

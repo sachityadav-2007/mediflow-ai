@@ -882,6 +882,43 @@ const getQRScanActivity = async ({ limit = 50 }) => {
   };
 };
 
+/**
+ * 9. Basic Presence Analytics for Administrators
+ * Computes live presence summary:
+ * - totalDoctors: all registered clinicians
+ * - presentDoctors: doctors currently PRESENT or AVAILABLE
+ * - inConsultationDoctors: doctors currently IN_CONSULTATION or BUSY
+ * - offDutyDoctors: doctors currently OFFLINE, AWAY, ON_BREAK, or ON_LEAVE
+ */
+const getPresenceAnalytics = async () => {
+  const [totalDoctors, presentDoctors, inConsultationDoctors, offDutyDoctors] =
+    await Promise.all([
+      prisma.doctor.count(),
+      prisma.doctor.count({
+        where: { currentPresence: { in: ['PRESENT', 'AVAILABLE'] } },
+      }),
+      prisma.doctor.count({
+        where: { currentPresence: { in: ['IN_CONSULTATION', 'BUSY'] } },
+      }),
+      prisma.doctor.count({
+        where: {
+          currentPresence: { in: ['OFFLINE', 'AWAY', 'ON_BREAK', 'ON_LEAVE'] },
+        },
+      }),
+    ]);
+
+  return {
+    success: true,
+    data: {
+      totalDoctors,
+      presentDoctors,
+      inConsultationDoctors,
+      offDutyDoctors,
+      timestamp: new Date().toISOString(),
+    },
+  };
+};
+
 module.exports = {
   generateHospitalQR,
   revokeHospitalQR,
@@ -891,5 +928,6 @@ module.exports = {
   getDoctorMyAttendance,
   getAttendanceHistory,
   getQRScanActivity,
+  getPresenceAnalytics,
 };
 

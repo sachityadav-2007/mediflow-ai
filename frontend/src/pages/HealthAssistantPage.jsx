@@ -136,7 +136,7 @@ export default function HealthAssistantPage() {
       }
     } catch (err) {
       if (err.code === 'ERR_NETWORK' || !err.response) {
-        setError('Hospital AI service is currently unreachable. Please verify the backend service on port 5001 is running.');
+        setError('Hospital AI service is currently unreachable. If the server is waking up, please wait a moment and try again.');
       } else {
         setError(err.response?.data?.message || err.message || 'Failed to analyze symptoms. Please try again.');
       }

@@ -1,9 +1,13 @@
 import axios from 'axios';
 
+// Sanitize base URL from Vite environment, stripping trailing slashes or accidental /api suffix
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_BASE_URL = rawApiUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+
 // Create an Axios instance with the backend base URL and credentials enabled
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
-  timeout: 8000,
+  baseURL: API_BASE_URL,
+  timeout: 20000, // 20s timeout accommodates cloud/Render free-tier cold starts
   withCredentials: true, // Enables sending and receiving HTTP-only cookies
   headers: {
     'Content-Type': 'application/json',

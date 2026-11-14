@@ -1,14 +1,14 @@
 import { io } from 'socket.io-client';
 
-// Determine backend server URL from Vite environment or fallback to port 5001
-const SOCKET_SERVER_URL =
-  import.meta.env.VITE_API_URL || 'http://localhost:5001';
+// Determine backend server URL from Vite environment, sanitized for production
+const rawSocketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const SOCKET_SERVER_URL = rawSocketUrl.replace(/\/+$/, '').replace(/\/api$/, '');
 
 // Create a single shared Socket.IO client instance
 export const socket = io(SOCKET_SERVER_URL, {
   withCredentials: true,
   autoConnect: true,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: 10,
   reconnectionDelay: 2000,
   transports: ['websocket', 'polling'], // Fallback transport
 });

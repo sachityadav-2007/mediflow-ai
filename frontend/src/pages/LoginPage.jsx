@@ -44,7 +44,7 @@ function LoginPage() {
       // Differentiate between network/server-down errors and invalid credentials
       if (err.code === 'ERR_NETWORK' || (!err.response && err.message?.includes('Network'))) {
         setErrorMessage(
-          'MediFlow hospital server is currently unreachable. Please ensure the backend service on port 5001 is active.'
+          'MediFlow hospital server is currently unreachable. If the server is waking up, please wait a moment and try again.'
         );
       } else {
         setErrorMessage(

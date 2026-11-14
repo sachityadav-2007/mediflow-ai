@@ -1,15 +1,36 @@
 # =============================================================================
-# MediFlow AI — Render Cloud Blueprint Specification
-# Deploys Managed PostgreSQL, Node.js Express API, and React Frontend SPA
+# MediFlow AI — Render Cloud Infrastructure Blueprint
+# Deploys PostgreSQL 16, Express API + Socket.IO, FastAPI ML Service & React SPA
 # =============================================================================
 services:
-  # 1. Backend REST API & Socket.IO Gateway
+  # ---------------------------------------------------------------------------
+  # 1. Python FastAPI ML Microservice (Independent Inference Engine)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: mediflow-ml-service
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r ml-service/requirements.txt
+    startCommand: uvicorn app.main:app --app-dir ml-service --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DEBUG
+        value: "false"
+      - key: ML_SERVICE_SECRET
+        generateValue: true
+
+  # ---------------------------------------------------------------------------
+  # 2. Node.js Express REST API & Real-Time Socket.IO Gateway
+  # ---------------------------------------------------------------------------
   - type: web
     name: mediflow-api
     runtime: node
-    plan: starter
+    plan: free
     region: oregon
-    buildCommand: npm install && cd backend && npx prisma generate
+    buildCommand: cd backend && npm install && npx prisma generate && npx prisma migrate deploy
     startCommand: cd backend && node src/server.js
     healthCheckPath: /api/health
     envVars:
@@ -27,8 +48,20 @@ services:
         value: 7d
       - key: CLIENT_URL
         value: https://mediflow-frontend.onrender.com,https://mediflow.vercel.app
+      - key: ML_SERVICE_URL
+        fromService:
+          type: web
+          name: mediflow-ml-service
+          property: host
+      - key: ML_SERVICE_SECRET
+        fromService:
+          type: web
+          name: mediflow-ml-service
+          envVarKey: ML_SERVICE_SECRET
 
-  # 2. Frontend React 18 Single-Page Application
+  # ---------------------------------------------------------------------------
+  # 3. React 18 + Vite Frontend SPA
+  # ---------------------------------------------------------------------------
   - type: web
     name: mediflow-frontend
     runtime: static
@@ -47,12 +80,13 @@ services:
           name: mediflow-api
           property: host
 
-# 3. Managed PostgreSQL Database
+# -----------------------------------------------------------------------------
+# 4. Managed Production PostgreSQL Database
+# -----------------------------------------------------------------------------
 databases:
   - name: mediflow-db
     databaseName: mediflow_ai
     user: mediflow_user
-    plan: starter
+    plan: free
     region: oregon
     postgresMajorVersion: 16
-

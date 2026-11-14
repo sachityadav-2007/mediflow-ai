@@ -5,6 +5,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5002';
 const ML_SERVICE_SECRET = process.env.ML_SERVICE_SECRET || 'mediflow_internal_ml_service_secret_2026';
@@ -29,10 +30,20 @@ class MLServiceClient {
    */
   _request(method, path, body = null, requireAuth = true) {
     return new Promise((resolve, reject) => {
-      const url = this.getBaseUrl();
+      let url;
+      try {
+        url = this.getBaseUrl();
+      } catch (err) {
+        return reject(new Error(`Invalid ML_SERVICE_URL: ${err.message}`));
+      }
+
+      const isHttps = url.protocol === 'https:';
+      const client = isHttps ? https : http;
+      const defaultPort = isHttps ? 443 : (url.hostname === 'localhost' || url.hostname === '127.0.0.1' ? 5002 : 80);
+
       const options = {
         hostname: url.hostname,
-        port: url.port || 5002,
+        port: url.port || defaultPort,
         path: path,
         method: method,
         timeout: TIMEOUT_MS,
@@ -46,7 +57,7 @@ class MLServiceClient {
         options.headers['X-Internal-Token'] = this.getSecret();
       }
 
-      const req = http.request(options, (res) => {
+      const req = client.request(options, (res) => {
         let data = '';
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => {

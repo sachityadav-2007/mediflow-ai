@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "MediFlow AI ML Service"
     VERSION: str = "2.0.0"
     HOST: str = "0.0.0.0"
-    PORT: int = int(os.getenv("ML_SERVICE_PORT", "5002"))
+    PORT: int = int(os.getenv("PORT", os.getenv("ML_SERVICE_PORT", "5002")))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     
     # Internal service token for secure Express <-> FastAPI communication

@@ -5,30 +5,32 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
-COPY package*.json ./
+# Copy package definitions and database schema
+COPY backend/package*.json ./backend/
 COPY database ./database
+
+# Install backend dependencies
+WORKDIR /app/backend
 RUN npm ci
 
 # Generate Prisma Client
-RUN cd database && npx prisma generate --schema=schema.prisma
+RUN npx prisma generate --schema=../database/schema.prisma
 
 FROM node:20-alpine AS runner
 
-WORKDIR /app
+WORKDIR /app/backend
 ENV NODE_ENV=production
 
 # Copy built dependencies and app source
-COPY --from=builder /app/node_modules ./node_modules
-COPY backend ./backend
-COPY database ./database
+COPY --from=builder /app/backend/node_modules ./node_modules
+COPY backend ./
+COPY database ../database
 
-# Expose backend port
+# Expose backend port (Cloud providers dynamically pass PORT)
 EXPOSE 5001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:5001/api/health || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:${PORT:-5001}/api/health || exit 1
 
-# Start server
-CMD ["node", "backend/src/server.js"]
-
+# Start Express & Socket.IO server
+CMD ["node", "src/server.js"]

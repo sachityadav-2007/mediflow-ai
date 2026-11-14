@@ -1,0 +1,86 @@
+# =============================================================================
+# MediFlow AI — Production Docker Compose Orchestration
+# Runs PostgreSQL 16, Python ML Service, Express & Socket.IO API, and Nginx SPA
+# =============================================================================
+version: '3.8'
+
+services:
+  # 1. Production PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: mediflow-prod-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mediflow_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mediflow_secure_db_password_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-mediflow_ai}
+    volumes:
+      - prod_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mediflow_user} -d ${POSTGRES_DB:-mediflow_ai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Python FastAPI ML Microservice
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: mediflow-prod-ml
+    restart: always
+    environment:
+      PORT: 5002
+      ML_SERVICE_SECRET: ${ML_SERVICE_SECRET:-mediflow_internal_ml_service_secret_2026}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-mediflow_user}:${POSTGRES_PASSWORD:-mediflow_secure_db_password_2026}@db:5432/${POSTGRES_DB:-mediflow_ai}?schema=public"
+    ports:
+      - "5002:5002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # 3. Node.js Express REST API & Socket.IO Gateway
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mediflow-prod-api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-mediflow_user}:${POSTGRES_PASSWORD:-mediflow_secure_db_password_2026}@db:5432/${POSTGRES_DB:-mediflow_ai}?schema=public"
+      JWT_SECRET: ${JWT_SECRET:-mediflow_jwt_production_secret_key_min_32_chars}
+      JWT_EXPIRES_IN: "7d"
+      CLIENT_URL: ${CLIENT_URL:-http://localhost,http://localhost:5173,http://localhost:80}
+      ML_SERVICE_URL: "http://ml-service:5002"
+      ML_SERVICE_SECRET: ${ML_SERVICE_SECRET:-mediflow_internal_ml_service_secret_2026}
+    ports:
+      - "5001:5001"
+
+  # 4. React 18 + Vite Frontend with Nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5001}
+    container_name: mediflow-prod-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  prod_pgdata:
+

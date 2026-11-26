@@ -5,11 +5,10 @@
 
 This document maps the software-design concepts from the ISD course to the code I personally wrote. My commits are visible in the repository history:
 
-| Commit | Summary |
-| ------ | ------- |
-| `5f864ca` | Sort dropdown and "Accepting Patients" filter on the doctors directory |
-| `b0b8497` | Doctor availability calendar and slot management (frontend, backend, booking integration) |
-
+| Commit | Summary | Link |
+| ------ | ------- | ---- |
+| `5f864ca` | Sort dropdown and "Accepting Patients" filter on the doctors directory | [View commit](https://github.com/ishitahas/mediflow-ai/commit/5f864ca0d32ec9ba1b06b51f65f49b44a39cc298) |
+| `b0b8497` | Doctor availability calendar and slot management (frontend, backend, booking integration) | [View commit](https://github.com/ishitahas/mediflow-ai/commit/b0b8497ca49771229d38a8cdd22fc2d1969a344f) |
 ---
 
 ## 1. My Contributions
@@ -53,7 +52,7 @@ Patients can sort doctors by experience, fee or name, and filter to doctors who 
 
 ## 4. Testing Evidence
 
-Automated tests for the new endpoints have not been written yet (see Limitations). I verified the feature manually with the checklist below.
+Automated tests for the new endpoints have not been written yet. The checklist below records manual testing status; only scenarios marked Pass have been verified so far.
 
 | # | Scenario | Expected | Result |
 | - | -------- | -------- | ------ |
@@ -77,3 +76,14 @@ Automated tests for the new endpoints have not been written yet (see Limitations
 - Slots must be exactly the doctor's consultation duration; custom lengths are not supported.
 - Dates are handled in UTC with the hospital timezone (default `Asia/Kolkata`) used for the "past date" check.
 - The calendar manages one slot at a time; bulk creation is not yet available.
+
+
+
+---
+
+## 6. Evidence Screenshots
+
+The following screenshots demonstrate my individual contributions to the MediFlow AI project:
+
+1. Doctor Availability Calendar – adding, blocking, unblocking and managing date-specific slots.
+2. Doctor Directory – sorting doctors and filtering doctors who are accepting patients.

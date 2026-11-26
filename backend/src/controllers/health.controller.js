@@ -14,13 +14,15 @@ const checkHealth = async (req, res) => {
         totalUsers: userCount,
       },
     });
-  } catch (error) {
+  }  catch (error) {
+    console.error(error);
     res.status(200).json({
       success: true,
       message: 'MediFlow AI server is running',
       database: {
         connected: false,
-        error: error.message,
+        error: 'Database unavailable',
+
       },
     });
   }

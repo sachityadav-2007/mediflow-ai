@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
 const healthRoutes = require('./routes/health.routes');
 const databaseRoutes = require('./routes/database.routes');
 const authRoutes = require('./routes/auth.routes');
@@ -18,6 +19,7 @@ const app = express();
 
 // Trust reverse proxies (Render, Vercel, Cloudflare, Nginx) for secure cookie forwarding
 app.set('trust proxy', 1);
+app.use(helmet());
 
 // Configure dynamic CORS supporting production Vercel app, local development, and custom CLIENT_URL
 const DEFAULT_ALLOWED_ORIGINS = [

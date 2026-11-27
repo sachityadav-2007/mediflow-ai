@@ -29,6 +29,7 @@ Verified production routes:
 * [`/patient/dashboard`](https://mediflow-ai-app.vercel.app/patient/dashboard) — Patient medical portal with upcoming visits.
 * [`/waitlist`](https://mediflow-ai-app.vercel.app/waitlist) — Dynamic waitlist priority tracker with transparent score breakdown.
 * [`/health-assistant`](https://mediflow-ai-app.vercel.app/health-assistant) — AI Health Assistant & smart symptom triage.
+* [`/immersive`](https://mediflow-ai-app.vercel.app/immersive) — MediFlow Immersive Care: AR Anatomy, 3D Organ Explorer, Virtual Hospital & VR Training.
 
 ---
 
@@ -57,12 +58,14 @@ MediFlow AI transforms this workflow through:
 3. **Contactless QR Reception Check-In:** Digital QR pass generation for instant kiosk or reception check-in.
 4. **Explainable Triage Scoring Engine:** Deterministic priority formula ($Score = Medical + Urgency + WaitTime$) inspired by the Emergency Severity Index (ESI) that automatically reallocates cancelled slots.
 5. **Decoupled Machine Learning Microservice:** Standalone Python FastAPI microservice hosting 4 Scikit-Learn pipelines for predictive wait-time estimation, clinician delay forecasting, and department workload planning.
+6. **MediFlow Immersive Care (AR & VR):** Augmented Reality human anatomy viewer, dynamic 3D organ exploration with cardiac pulsation and audio auscultation, 3D virtual hospital campus walkthrough with WebXR headset support, simulated consultation chambers, and interactive VR clinical training simulations.
 
 ---
 
 ## ✨ Main Features
 
 * **Interactive Specialists Directory:** 13 verified medical specialists across Cardiology, Neurology, Dermatology, Orthopedics, Pediatrics, Oncology, Nephrology, etc., with real-time presence indicators.
+* **MediFlow Immersive Care (`/immersive`):** Complete AR & VR module providing interactive 3D human anatomy, organ visualizations, virtual hospital navigation, simulated doctor consultation rooms, and persistent clinical training simulations. [Read Immersive Care Documentation](./docs/IMMERSIVE_CARE.md).
 * **Concurrency-Safe Slot Engine:** Discrete non-overlapping 30-minute booking intervals backed by atomic database transactions.
 * **Cryptographic QR Pass & Kiosk Check-In:** Automatic QR pass generation for every booking; `/check-in` scanner portal activates patient into the live OPD queue.
 * **Live OPD Queue Board (`/queue/:doctorId`):** Public screen-compatible real-time display showing currently serving token, queue position, and doctor consultation progress.

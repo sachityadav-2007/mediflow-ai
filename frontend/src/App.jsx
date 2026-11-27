@@ -14,6 +14,12 @@ import LiveQueuePage from './pages/LiveQueuePage';
 import ReceptionCheckInPage from './pages/ReceptionCheckInPage';
 import DoctorAttendancePage from './pages/DoctorAttendancePage';
 import HealthAssistantPage from './pages/HealthAssistantPage';
+import ImmersiveDashboard from './pages/immersive/ImmersiveDashboard';
+import ARAnatomyPage from './pages/immersive/ARAnatomyPage';
+import OrganExplorerPage from './pages/immersive/OrganExplorerPage';
+import VirtualHospitalPage from './pages/immersive/VirtualHospitalPage';
+import VRTrainingPage from './pages/immersive/VRTrainingPage';
+import MyLearningProgressPage from './pages/immersive/MyLearningProgressPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -29,6 +35,14 @@ function App() {
           <Route path="/queue/:doctorId" element={<LiveQueuePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+
+          {/* Immersive Care (AR & VR) Routes */}
+          <Route path="/immersive" element={<ImmersiveDashboard />} />
+          <Route path="/immersive/anatomy" element={<ARAnatomyPage />} />
+          <Route path="/immersive/organs" element={<OrganExplorerPage />} />
+          <Route path="/immersive/hospital" element={<VirtualHospitalPage />} />
+          <Route path="/immersive/training" element={<VRTrainingPage />} />
+          <Route path="/immersive/progress" element={<MyLearningProgressPage />} />
 
           {/* Protected Role-Based Routes */}
           <Route

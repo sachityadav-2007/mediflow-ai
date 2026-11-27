@@ -579,6 +579,66 @@ erDiagram
 | `createdAt` | `DateTime` | No | No | No | `now()` | Delivery timestamp. |
 | `updatedAt` | `DateTime` | No | No | No | Auto | Notification record update timestamp. |
 
+### 6.15 Model 15: `ImmersiveExperience` (`immersive_experiences`)
+
+| Field | Data Type | Primary Key | Foreign Key | Nullable | Default | Description |
+|---|---|:---:|:---:|:---:|---|---|
+| `id` | `String` (UUID) | Yes | No | No | `uuid()` | Unique experience identifier. |
+| `title` | `String` | No | No | No | None | Title of AR/VR module. |
+| `description` | `String` (Text) | No | No | No | None | Comprehensive educational overview. |
+| `type` | `ImmersiveType` | No | No | No | `ANATOMY` | Type: `ANATOMY`, `ORGAN`, `HOSPITAL`, `TRAINING`. |
+| `category` | `String` | No | No | No | None | System classification category. |
+| `thumbnail` | `String` | No | No | Yes | `null` | Preview thumbnail image URL. |
+| `isActive` | `Boolean` | No | No | No | `true` | Publication status flag. |
+| `metadata` | `Json` | No | No | Yes | `null` | Scene config, anatomical markers, presets. |
+| `createdAt` | `DateTime` | No | No | No | `now()` | Entity creation timestamp. |
+| `updatedAt` | `DateTime` | No | No | No | Auto | Record modification timestamp. |
+
+### 6.16 Model 16: `ImmersiveModel` (`immersive_models`)
+
+| Field | Data Type | Primary Key | Foreign Key | Nullable | Default | Description |
+|---|---|:---:|:---:|:---:|---|---|
+| `id` | `String` (UUID) | Yes | No | No | `uuid()` | 3D model asset identifier. |
+| `title` | `String` | No | No | No | None | Name of the anatomical or equipment asset. |
+| `description` | `String` (Text) | No | No | No | None | Detailed anatomical or clinical description. |
+| `modelUrl` | `String` | No | No | No | None | Relative or absolute path to GLB file. |
+| `previewUrl` | `String` | No | No | Yes | `null` | Poster preview image URL. |
+| `category` | `String` | No | No | No | None | `ANATOMY`, `ORGAN`, `HOSPITAL`, `EQUIPMENT`. |
+| `format` | `String` | No | No | No | `'GLB'` | Asset format: `GLB`, `GLTF`, `USDZ`, `PROCEDURAL`. |
+| `fileSizeMb` | `Float` | No | No | Yes | `null` | Binary asset size in megabytes. |
+| `isActive` | `Boolean` | No | No | No | `true` | Active status flag. |
+| `metadata` | `Json` | No | No | Yes | `null` | Hotspots, physiological parameters. |
+| `createdAt` | `DateTime` | No | No | No | `now()` | Asset registration timestamp. |
+| `updatedAt` | `DateTime` | No | No | No | Auto | Asset update timestamp. |
+
+### 6.17 Model 17: `ImmersiveSession` (`immersive_sessions`)
+
+| Field | Data Type | Primary Key | Foreign Key | Nullable | Default | Description |
+|---|---|:---:|:---:|:---:|---|---|
+| `id` | `String` (UUID) | Yes | No | No | `uuid()` | Telemetry session unique identifier. |
+| `userId` | `String` (UUID) | No | Yes (`users.id`) | No | None | Participating user. |
+| `experienceId` | `String` (UUID) | No | Yes (`immersive_experiences.id`) | No | None | Associated experience. |
+| `mode` | `ImmersiveMode` | No | No | No | `THREE_D` | `AR`, `VR`, or `THREE_D`. |
+| `status` | `SessionStatus` | No | No | No | `IN_PROGRESS` | `IN_PROGRESS`, `COMPLETED`, `ABANDONED`. |
+| `deviceType` | `String` | No | No | Yes | `null` | `DESKTOP`, `MOBILE_AR`, `VR_HEADSET`. |
+| `startedAt` | `DateTime` | No | No | No | `now()` | Session initiation timestamp. |
+| `completedAt` | `DateTime` | No | No | Yes | `null` | Session conclusion timestamp. |
+| `duration` | `Int` | No | No | Yes | `null` | Elapsed interaction duration in seconds. |
+| `metadata` | `Json` | No | No | Yes | `null` | Interaction telemetry. |
+
+### 6.18 Model 18: `ImmersiveProgress` (`immersive_progress`)
+
+| Field | Data Type | Primary Key | Foreign Key | Nullable | Default | Description |
+|---|---|:---:|:---:|:---:|---|---|
+| `id` | `String` (UUID) | Yes | No | No | `uuid()` | Progress record identifier. |
+| `userId` | `String` (UUID) | No | Yes (`users.id`) | No | None | Enrolled user ID. |
+| `experienceId` | `String` (UUID) | No | Yes (`immersive_experiences.id`) | No | None | Experience ID. |
+| `completionPercentage` | `Int` | No | No | No | `0` | Completion percentage (0 to 100). |
+| `completed` | `Boolean` | No | No | No | `false` | Full completion milestone flag. |
+| `score` | `Int` | No | No | Yes | `null` | Clinical assessment score if applicable. |
+| `lastStep` | `String` | No | No | Yes | `null` | Most recently completed step label. |
+| `updatedAt` | `DateTime` | No | No | No | Auto | Last progress update timestamp. |
+
 ---
 
 ## 7. Primary Keys and Foreign Keys Summary

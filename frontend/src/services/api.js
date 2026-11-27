@@ -1,21 +1,27 @@
 import axios from 'axios';
 
-// Smart resolve backend API URL supporting local development and production cloud topologies
-const resolveApiBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  const isBrowser = typeof window !== 'undefined';
-  const isProdHost = isBrowser && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+export const RENDER_BACKEND_URL = 'https://mediflow-api-bz27.onrender.com';
 
-  // If running on production (Vercel, etc.) and envUrl is either omitted or pointing to localhost, route to Render production backend
-  if (isProdHost && (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
-    return 'https://mediflow-api-bz27.onrender.com';
+// Smart resolve backend API URL supporting local development and production cloud topologies
+export const resolveApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  const useLocal = import.meta.env.VITE_USE_LOCAL_BACKEND === 'true';
+
+  // 1. If explicitly configured to use a local backend (npm run dev in backend)
+  if (useLocal) {
+    return 'http://localhost:5001';
   }
 
-  const rawUrl = envUrl || (isProdHost ? 'https://mediflow-api-bz27.onrender.com' : 'http://localhost:5001');
-  return rawUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+  // 2. If VITE_API_URL points to a remote domain, use that
+  if (envUrl && typeof envUrl === 'string' && envUrl.startsWith('http') && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+  }
+
+  // 3. Default to the live production Render backend for both local Vite (localhost:5173) and cloud deployments
+  return RENDER_BACKEND_URL;
 };
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // Create an Axios instance with the backend base URL and credentials enabled
 const api = axios.create({

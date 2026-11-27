@@ -71,8 +71,12 @@ function LoginPage() {
         }
       }, 350);
     } catch (err) {
-      // Differentiate between network/server-down errors and invalid credentials
-      if (err.code === 'ERR_NETWORK' || (!err.response && err.message?.includes('Network'))) {
+      // Differentiate between network/server-down errors, timeouts, and invalid credentials
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setErrorMessage(
+          'Server request timed out. The MediFlow hospital server may still be spinning up. Please try again.'
+        );
+      } else if (err.code === 'ERR_NETWORK' || (!err.response && err.message?.includes('Network'))) {
         setErrorMessage(
           'MediFlow hospital server is currently unreachable. If the server is waking up, please wait a moment and try again.'
         );

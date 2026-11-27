@@ -58,7 +58,7 @@ function Navbar() {
   };
 
   const isMoreActive = (role) => {
-    if (role === 'PATIENT') return isActive('/book') || isActive('/waitlist') || isActive('/find-specialist') || isActive('/health-assistant');
+    if (role === 'PATIENT') return isActive('/book') || isActive('/waitlist') || isActive('/find-specialist');
     if (role === 'DOCTOR') return isActive('/check-in');
     if (role === 'ADMIN') return isActive('/admin/intelligence') || isActive('/check-in');
     return false;
@@ -114,9 +114,13 @@ function Navbar() {
             <Link to="/doctors" className={navLinkClass('/doctors')}>
               <span>Specialists Directory</span>
             </Link>
-            <Link to="/immersive" className={navLinkClass('/immersive')}>
-              <span>🥽 Immersive Care</span>
-            </Link>
+
+            {/* Public (Unauthenticated) Desktop Link */}
+            {!user && (
+              <Link to="/immersive" className={navLinkClass('/immersive')}>
+                <span>🥽 Immersive Care</span>
+              </Link>
+            )}
 
             {/* Role-Specific Desktop Links */}
             {user?.role === 'PATIENT' && (
@@ -126,6 +130,9 @@ function Navbar() {
                 </Link>
                 <Link to="/health-assistant" className={navLinkClass('/health-assistant')}>
                   Health Assistant
+                </Link>
+                <Link to="/immersive" className={navLinkClass('/immersive')}>
+                  <span>🥽 Immersive Care</span>
                 </Link>
                 <Link to="/my-appointments" className={navLinkClass('/my-appointments')}>
                   My Appointments
@@ -138,6 +145,9 @@ function Navbar() {
                 <Link to="/doctor/dashboard" className={navLinkClass('/doctor/dashboard')}>
                   Doctor Dashboard
                 </Link>
+                <Link to="/immersive" className={navLinkClass('/immersive')}>
+                  <span>🥽 Immersive Care</span>
+                </Link>
                 <Link to="/doctor/attendance" className={navLinkClass('/doctor/attendance')}>
                   📷 My Attendance
                 </Link>
@@ -148,6 +158,9 @@ function Navbar() {
               <>
                 <Link to="/admin/dashboard" className={navLinkClass('/admin/dashboard')}>
                   Overview
+                </Link>
+                <Link to="/immersive" className={navLinkClass('/immersive')}>
+                  <span>🥽 Immersive Care</span>
                 </Link>
                 <Link to="/admin/doctors" className={navLinkClass('/admin/doctors')}>
                   Doctors
@@ -187,12 +200,24 @@ function Navbar() {
                 </button>
 
                 {moreDropdownOpen && (
-                  <div className="absolute right-0 mt-1.5 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute right-0 mt-1.5 w-60 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
                     {user.role === 'PATIENT' && (
                       <>
                         <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                           Patient Services
                         </div>
+                        <Link
+                          to="/immersive"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/immersive')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">🥽</span>
+                          <span>Immersive Care (AR &amp; VR)</span>
+                        </Link>
                         <Link
                           to="/health-assistant"
                           onClick={() => setMoreDropdownOpen(false)}
@@ -238,6 +263,18 @@ function Navbar() {
                           Clinical Tools
                         </div>
                         <Link
+                          to="/immersive"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/immersive')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">🥽</span>
+                          <span>Immersive Care (AR &amp; VR)</span>
+                        </Link>
+                        <Link
                           to="/check-in"
                           onClick={() => setMoreDropdownOpen(false)}
                           className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
@@ -257,6 +294,18 @@ function Navbar() {
                         <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                           Hospital Operations
                         </div>
+                        <Link
+                          to="/immersive"
+                          onClick={() => setMoreDropdownOpen(false)}
+                          className={`flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-lg mx-1 transition ${
+                            isActive('/immersive')
+                              ? 'text-[#0072CE] bg-blue-50 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <span className="text-sm">🥽</span>
+                          <span>Immersive Care (AR &amp; VR)</span>
+                        </Link>
                         <Link
                           to="/admin/intelligence"
                           onClick={() => setMoreDropdownOpen(false)}
@@ -467,11 +516,11 @@ function Navbar() {
                   <span>🧭 Health Assistant</span>
                 </Link>
                 <Link
-                  to="/book"
+                  to="/immersive"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={mobileNavLinkClass('/book')}
+                  className={mobileNavLinkClass('/immersive')}
                 >
-                  <span>📅 Book Appointment</span>
+                  <span>🥽 Immersive Care</span>
                 </Link>
                 <Link
                   to="/my-appointments"

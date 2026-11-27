@@ -1,8 +1,8 @@
 import { io } from 'socket.io-client';
+import { API_BASE_URL } from './api';
 
-// Determine backend server URL from Vite environment, sanitized for production
-const rawSocketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
-const SOCKET_SERVER_URL = rawSocketUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+// Determine backend server URL from API_BASE_URL (defaults to live Render backend)
+const SOCKET_SERVER_URL = API_BASE_URL;
 
 // Create a single shared Socket.IO client instance
 export const socket = io(SOCKET_SERVER_URL, {

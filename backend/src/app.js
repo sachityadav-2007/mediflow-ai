@@ -14,6 +14,7 @@ const aiRoutes = require('./routes/ai.routes');
 const checkInRoutes = require('./routes/checkIn.routes');
 const triageRoutes = require('./routes/triage.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const immersiveRoutes = require('./routes/immersive.routes');
 
 const app = express();
 
@@ -90,6 +91,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/check-in', checkInRoutes);
 app.use('/api/triage', triageRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/immersive', immersiveRoutes);
 
 // Catch-all 404 handler for unmapped routes
 app.use((req, res) => {

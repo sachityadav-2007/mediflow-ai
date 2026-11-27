@@ -104,6 +104,25 @@ enum NotificationType {
   SYSTEM_ALERT
 }
 
+enum ImmersiveType {
+  ANATOMY
+  ORGAN
+  HOSPITAL
+  TRAINING
+}
+
+enum ImmersiveMode {
+  AR
+  VR
+  THREE_D
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
 // -----------------------------------------------------------------------------
 // MODEL 1: USER
 // Central authentication and profile record
@@ -124,6 +143,10 @@ model User {
 
   // Notifications
   notifications  Notification[]
+
+  // Immersive Care relations
+  immersiveSessions ImmersiveSession[]
+  immersiveProgress ImmersiveProgress[]
 
   @@map("users")
 }
@@ -438,4 +461,93 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 15: IMMERSIVE EXPERIENCE
+// Catalog of AR/VR educational and simulation modules
+// -----------------------------------------------------------------------------
+model ImmersiveExperience {
+  id          String            @id @default(uuid())
+  title       String
+  description String            @db.Text
+  type        ImmersiveType     @default(ANATOMY)
+  category    String            // "ANATOMY", "ORGAN", "HOSPITAL", "TRAINING"
+  thumbnail   String?
+  isActive    Boolean           @default(true)
+  metadata    Json?             // Additional scene configs, markers, camera presets
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  sessions    ImmersiveSession[]
+  progress    ImmersiveProgress[]
+
+  @@index([type, isActive])
+  @@map("immersive_experiences")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 16: IMMERSIVE 3D MODEL
+// Repository of 3D anatomical and clinical assets for AR & VR
+// -----------------------------------------------------------------------------
+model ImmersiveModel {
+  id          String            @id @default(uuid())
+  title       String
+  description String            @db.Text
+  modelUrl    String
+  previewUrl  String?
+  category    String            // "ANATOMY", "ORGAN", "HOSPITAL", "EQUIPMENT"
+  format      String            @default("GLB") // "GLB", "GLTF", "USDZ", "PROCEDURAL"
+  fileSizeMb  Float?
+  isActive    Boolean           @default(true)
+  metadata    Json?             // organ trivia, physiological function, cross-section data
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([category, isActive])
+  @@map("immersive_models")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 17: IMMERSIVE SESSION
+// Telemetry and session audit for AR and VR interaction
+// -----------------------------------------------------------------------------
+model ImmersiveSession {
+  id           String              @id @default(uuid())
+  userId       String
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experienceId String
+  experience   ImmersiveExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  mode         ImmersiveMode       @default(THREE_D)
+  status       SessionStatus       @default(IN_PROGRESS)
+  deviceType   String?             // "DESKTOP", "MOBILE_AR", "VR_HEADSET"
+  startedAt    DateTime            @default(now())
+  completedAt  DateTime?
+  duration     Int?                // Duration in seconds
+  metadata     Json?
+
+  @@index([userId, startedAt])
+  @@index([experienceId])
+  @@map("immersive_sessions")
+}
+
+// -----------------------------------------------------------------------------
+// MODEL 18: IMMERSIVE LEARNING PROGRESS
+// Persistent educational and clinical training completion records
+// -----------------------------------------------------------------------------
+model ImmersiveProgress {
+  id                   String              @id @default(uuid())
+  userId               String
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experienceId         String
+  experience           ImmersiveExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  completionPercentage Int                 @default(0) // 0 to 100
+  completed            Boolean             @default(false)
+  score                Int?                // Assessment/quiz score if applicable
+  lastStep             String?             // e.g. "Vitals Checked", "Organ Cross-Section"
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([userId, experienceId])
+  @@index([userId])
+  @@map("immersive_progress")
 }

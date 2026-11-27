@@ -482,7 +482,7 @@ const bookAppointment = async ({
           doctorId: appointment.doctorId,
           date,
           slotTime,
-        },
+        }
       }).catch((err) => console.warn('Patient booking notification notice:', err.message));
     }
 

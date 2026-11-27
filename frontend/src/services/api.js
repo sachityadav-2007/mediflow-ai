@@ -1,13 +1,32 @@
 import axios from 'axios';
 
-// Sanitize base URL from Vite environment, stripping trailing slashes or accidental /api suffix
-const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
-const API_BASE_URL = rawApiUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+export const RENDER_BACKEND_URL = 'https://mediflow-api-bz27.onrender.com';
+
+// Smart resolve backend API URL supporting local development and production cloud topologies
+export const resolveApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  const useLocal = import.meta.env.VITE_USE_LOCAL_BACKEND === 'true';
+
+  // 1. If explicitly configured to use a local backend (npm run dev in backend)
+  if (useLocal) {
+    return 'http://localhost:5001';
+  }
+
+  // 2. If VITE_API_URL points to a remote domain, use that
+  if (envUrl && typeof envUrl === 'string' && envUrl.startsWith('http') && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+  }
+
+  // 3. Default to the live production Render backend for both local Vite (localhost:5173) and cloud deployments
+  return RENDER_BACKEND_URL;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 // Create an Axios instance with the backend base URL and credentials enabled
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000, // 20s timeout accommodates cloud/Render free-tier cold starts
+  timeout: 60000, // 60s timeout comfortably accommodates cloud/Render free-tier cold starts
   withCredentials: true, // Enables sending and receiving HTTP-only cookies
   headers: {
     'Content-Type': 'application/json',

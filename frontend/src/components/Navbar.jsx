@@ -114,6 +114,9 @@ function Navbar() {
             <Link to="/doctors" className={navLinkClass('/doctors')}>
               <span>Specialists Directory</span>
             </Link>
+            <Link to="/immersive" className={navLinkClass('/immersive')}>
+              <span>🥽 Immersive Care</span>
+            </Link>
 
             {/* Role-Specific Desktop Links */}
             {user?.role === 'PATIENT' && (
@@ -437,6 +440,13 @@ function Navbar() {
               className={mobileNavLinkClass('/doctors')}
             >
               <span>🩺 Specialists Directory</span>
+            </Link>
+            <Link
+              to="/immersive"
+              onClick={() => setMobileMenuOpen(false)}
+              className={mobileNavLinkClass('/immersive')}
+            >
+              <span>🥽 Immersive Care (AR &amp; VR)</span>
             </Link>
 
             {/* Patient Mobile Navigation */}

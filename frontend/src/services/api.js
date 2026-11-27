@@ -144,6 +144,29 @@ export const updateDoctorSchedule = async (scheduleData) => {
   return response.data;
 };
 
+// Date-specific doctor availability calendar and slot management
+export const getDoctorAvailabilityCalendar = async (startDate, endDate) => {
+  const response = await api.get('/api/doctors/availability/calendar', {
+    params: { startDate, endDate },
+  });
+  return response.data;
+};
+
+export const createDoctorAvailabilitySlot = async (slotData) => {
+  const response = await api.post('/api/doctors/availability/slots', slotData);
+  return response.data;
+};
+
+export const updateDoctorAvailabilitySlot = async (slotId, updates) => {
+  const response = await api.patch(`/api/doctors/availability/slots/${slotId}`, updates);
+  return response.data;
+};
+
+export const deleteDoctorAvailabilitySlot = async (slotId) => {
+  const response = await api.delete(`/api/doctors/availability/slots/${slotId}`);
+  return response.data;
+};
+
 // -----------------------------------------------------------------------------
 // Doctor Presence Services
 // -----------------------------------------------------------------------------

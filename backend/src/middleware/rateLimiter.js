@@ -49,5 +49,9 @@ module.exports = {
     maxRequests: 30,
     message: 'Too many QR attendance attempts. Please wait 1 minute before retrying.',
   }),
+  loginLimiter: createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    maxRequests: 10,
+    message: 'Too many login attempts. Try again in 15 minutes.',
+  }),
 };
-

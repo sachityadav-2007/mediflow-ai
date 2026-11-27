@@ -11,10 +11,12 @@ const {
 } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+const { loginLimiter } = require('../middleware/rateLimiter');
 
 // Public authentication routes
 router.post('/register', register);
-router.post('/login', login);
+// router.post('/login', login);
+router.post('/login', loginLimiter, login);
 router.post('/logout', logout);
 
 // Protected routes (require valid JWT)
@@ -66,4 +68,3 @@ router.get(
 );
 
 module.exports = router;
-

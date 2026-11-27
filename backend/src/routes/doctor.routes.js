@@ -6,6 +6,10 @@ const {
   updateDoctorProfile,
   getDoctorSchedule,
   updateDoctorSchedule,
+  getDoctorAvailabilityCalendar,
+  createDoctorAvailabilitySlot,
+  updateDoctorAvailabilitySlot,
+  deleteDoctorAvailabilitySlot,
 } = require('../controllers/doctor.controller');
 const {
   authenticateUser,
@@ -25,6 +29,12 @@ router.get('/', getAllDoctors);
 // (Defined before /:id to prevent Express route matching conflict)
 router.get('/profile', authenticateUser, authorizeRoles('DOCTOR'), getDoctorProfile);
 router.put('/profile', authenticateUser, authorizeRoles('DOCTOR'), updateDoctorProfile);
+
+// Doctor-only: Manage date-specific availability slots
+router.get('/availability/calendar', authenticateUser, authorizeRoles('DOCTOR'), getDoctorAvailabilityCalendar);
+router.post('/availability/slots', authenticateUser, authorizeRoles('DOCTOR'), createDoctorAvailabilitySlot);
+router.patch('/availability/slots/:slotId', authenticateUser, authorizeRoles('DOCTOR'), updateDoctorAvailabilitySlot);
+router.delete('/availability/slots/:slotId', authenticateUser, authorizeRoles('DOCTOR'), deleteDoctorAvailabilitySlot);
 
 // Doctor-only: Update own working schedule
 router.put('/schedule', authenticateUser, authorizeRoles('DOCTOR'), updateDoctorSchedule);

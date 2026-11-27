@@ -2,9 +2,10 @@ const { PrismaClient } = require('@prisma/client');
 
 // Instantiate PrismaClient for database interactions
 const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  log: process.env.PRISMA_LOG_QUERIES === 'true'
+    ? ['query', 'warn', 'error']
+    : ['error'],
 });
-
 // Configure robust default timeouts for cloud databases (such as Neon)
 const originalTransaction = prisma.$transaction.bind(prisma);
 prisma.$transaction = function (arg, options = {}) {

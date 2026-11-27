@@ -117,28 +117,12 @@ const getAvailableSlots = async (doctorId, dateStr) => {
     (item) => item.dayOfWeek === dayOfWeek && item.isAvailable === true
   );
 
-  if (!scheduleForDay) {
-    return {
-      success: true,
-      available: false,
-      reason: 'NO_SCHEDULE',
-      message: `Doctor has no working schedule on ${dayOfWeek}.`,
-      doctorId: doctor.id,
-      doctorName: doctor.user.name,
-      currentPresence: doctor.currentPresence,
-      date: dateStr,
-      dayOfWeek,
-      slots: [],
-    };
-  }
-
-  // Generate all possible discrete time slots for this shift
+  // Generate recurring slots when a weekly schedule exists. Date-specific
+  // availability below can still make a doctor bookable on an otherwise-off day.
   const duration = doctor.consultationDuration || 30;
-  const allGeneratedSlots = generateTimeSlots(
-    scheduleForDay.startTime,
-    scheduleForDay.endTime,
-    duration
-  );
+  const allGeneratedSlots = scheduleForDay
+    ? generateTimeSlots(scheduleForDay.startTime, scheduleForDay.endTime, duration)
+    : [];
 
   // Define date bounds for querying booked slots
   const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
@@ -152,7 +136,7 @@ const getAvailableSlots = async (doctorId, dateStr) => {
         gte: startOfDay,
         lte: endOfDay,
       },
-      status: 'BOOKED',
+      status: { in: ['BOOKED', 'BLOCKED'] },
     },
     select: {
       startTime: true,
@@ -189,14 +173,30 @@ const getAvailableSlots = async (doctorId, dateStr) => {
     }
   });
 
-  // Filter out booked slots to return only open slots
-  const availableSlots = allGeneratedSlots.filter(
+  // Include one-off availability created by the doctor, while excluding
+  // booked/blocked recurring times and avoiding duplicate start times.
+  const oneOffSlots = await prisma.appointmentSlot.findMany({
+    where: {
+      doctorId: doctor.id,
+      slotDate: { gte: startOfDay, lte: endOfDay },
+      status: 'AVAILABLE',
+    },
+    select: { startTime: true, endTime: true },
+  });
+  const recurringAvailableSlots = allGeneratedSlots.filter(
     (slot) => !bookedTimesSet.has(slot.startTime)
+  );
+  const recurringStarts = new Set(allGeneratedSlots.map((slot) => slot.startTime));
+  const extraAvailableSlots = oneOffSlots.filter(
+    (slot) => !recurringStarts.has(slot.startTime) && !bookedTimesSet.has(slot.startTime)
+  );
+  const availableSlots = [...recurringAvailableSlots, ...extraAvailableSlots].sort(
+    (a, b) => a.startTime.localeCompare(b.startTime)
   );
 
   return {
     success: true,
-    available: true,
+    available: availableSlots.length > 0,
     doctorId: doctor.id,
     doctorName: doctor.user.name,
     specialization: doctor.specialization,
@@ -205,7 +205,7 @@ const getAvailableSlots = async (doctorId, dateStr) => {
     consultationFee: doctor.consultationFee,
     date: dateStr,
     dayOfWeek,
-    totalSlots: allGeneratedSlots.length,
+    totalSlots: allGeneratedSlots.length + extraAvailableSlots.length,
     availableCount: availableSlots.length,
     slots: availableSlots,
   };
@@ -265,23 +265,33 @@ const bookAppointment = async ({
     (item) => item.dayOfWeek === dayOfWeek && item.isAvailable === true
   );
 
-  if (!activeSchedule) {
-    throw new Error(`Doctor does not have an active schedule on ${dayOfWeek}.`);
-  }
+  // 4. A booking must match a complete generated recurring slot or an
+  // explicitly-created date-specific AVAILABLE slot.
+  if (!startTime) throw new Error('Start time is required.');
 
-  // 4. Verify slot time bounds
-  if (!startTime) {
-    throw new Error('Start time is required.');
-  }
-
+  const duration = doctor.consultationDuration || 30;
   const slotStartMin = timeToMinutes(startTime);
-  const schedStartMin = timeToMinutes(activeSchedule.startTime);
-  const schedEndMin = timeToMinutes(activeSchedule.endTime);
+  const calculatedEndTime = endTime || minutesToTime(slotStartMin + duration);
+  const startOfDay = new Date(`${date}T00:00:00.000Z`);
+  const endOfDay = new Date(`${date}T23:59:59.999Z`);
+  const recurringSlots = activeSchedule
+    ? generateTimeSlots(activeSchedule.startTime, activeSchedule.endTime, duration)
+    : [];
+  const matchingRecurringSlot = recurringSlots.find(
+    (slot) => slot.startTime === startTime && slot.endTime === calculatedEndTime
+  );
+  const matchingOneOffSlot = await prisma.appointmentSlot.findFirst({
+    where: {
+      doctorId,
+      slotDate: { gte: startOfDay, lte: endOfDay },
+      startTime,
+      endTime: calculatedEndTime,
+      status: 'AVAILABLE',
+    },
+  });
 
-  if (slotStartMin < schedStartMin || slotStartMin >= schedEndMin) {
-    throw new Error(
-      `Selected time (${startTime}) is outside the doctor's working hours (${activeSchedule.startTime} - ${activeSchedule.endTime}).`
-    );
+  if (!matchingRecurringSlot && !matchingOneOffSlot) {
+    throw new Error('Selected time is not an available appointment slot. Please choose a slot shown as available.');
   }
 
   // If booking for today, prevent booking past time slots
@@ -291,13 +301,6 @@ const bookAppointment = async ({
       throw new Error('Cannot book an appointment for a time slot that has already passed today.');
     }
   }
-
-  // Calculate default endTime if not passed
-  const duration = doctor.consultationDuration || 30;
-  const calculatedEndTime = endTime || minutesToTime(slotStartMin + duration);
-
-  const startOfDay = new Date(`${date}T00:00:00.000Z`);
-  const endOfDay = new Date(`${date}T23:59:59.999Z`);
 
   // 5. Atomic Booking Transaction to prevent double booking
   const appointment = await prisma.$transaction(async (tx) => {
@@ -356,6 +359,9 @@ const bookAppointment = async ({
     });
 
     if (slot) {
+      if (slot.status === 'BLOCKED') {
+        throw new Error('This time slot is unavailable. Please choose another slot.');
+      }
       if (slot.status === 'BOOKED') {
         throw new Error('This time slot is already booked. Please choose another slot.');
       }

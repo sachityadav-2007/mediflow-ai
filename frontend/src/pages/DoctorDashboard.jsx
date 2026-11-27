@@ -30,6 +30,7 @@ import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorState from '../components/ui/ErrorState';
 import LoadingSkeleton from '../components/ui/LoadingSkeleton';
+import DoctorAvailabilityCalendar from '../components/doctor/DoctorAvailabilityCalendar';
 
 const DAYS_OF_WEEK = [
   'MONDAY',
@@ -1348,6 +1349,8 @@ function DoctorDashboard() {
             )}
           </CardContent>
         </Card>
+
+        <DoctorAvailabilityCalendar consultationDuration={doctorData?.consultationDuration || 30} />
 
         {/* 2-Column Section: Schedule & Presence History */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

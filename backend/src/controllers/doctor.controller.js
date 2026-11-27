@@ -252,6 +252,52 @@ const updateDoctorPresence = async (req, res) => {
   }
 };
 
+
+const getDoctorAvailabilityCalendar = async (req, res) => {
+  try {
+    const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.id }, select: { id: true } });
+    if (!doctor) return res.status(403).json({ success: false, message: 'Doctor profile not found.' });
+    const { startDate, endDate } = req.query;
+    const slots = await doctorService.getDoctorAvailabilityCalendar(doctor.id, startDate, endDate);
+    return res.status(200).json({ success: true, slots });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Failed to retrieve availability calendar.' });
+  }
+};
+
+const createDoctorAvailabilitySlot = async (req, res) => {
+  try {
+    const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.id }, select: { id: true } });
+    if (!doctor) return res.status(403).json({ success: false, message: 'Doctor profile not found.' });
+    const slot = await doctorService.createDoctorAvailabilitySlot(doctor.id, req.body || {});
+    return res.status(201).json({ success: true, message: 'Availability slot created.', slot });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Failed to create availability slot.' });
+  }
+};
+
+const updateDoctorAvailabilitySlot = async (req, res) => {
+  try {
+    const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.id }, select: { id: true } });
+    if (!doctor) return res.status(403).json({ success: false, message: 'Doctor profile not found.' });
+    const slot = await doctorService.updateDoctorAvailabilitySlot(doctor.id, req.params.slotId, req.body || {});
+    return res.status(200).json({ success: true, message: 'Availability slot updated.', slot });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Failed to update availability slot.' });
+  }
+};
+
+const deleteDoctorAvailabilitySlot = async (req, res) => {
+  try {
+    const doctor = await prisma.doctor.findUnique({ where: { userId: req.user.id }, select: { id: true } });
+    if (!doctor) return res.status(403).json({ success: false, message: 'Doctor profile not found.' });
+    await doctorService.deleteDoctorAvailabilitySlot(doctor.id, req.params.slotId);
+    return res.status(200).json({ success: true, message: 'Availability slot deleted.' });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Failed to delete availability slot.' });
+  }
+};
+
 module.exports = {
   getAllDoctors,
   getDoctorById,
@@ -259,6 +305,10 @@ module.exports = {
   updateDoctorProfile,
   getDoctorSchedule,
   updateDoctorSchedule,
+  getDoctorAvailabilityCalendar,
+  createDoctorAvailabilitySlot,
+  updateDoctorAvailabilitySlot,
+  deleteDoctorAvailabilitySlot,
   getAllPresences,
   getDoctorPresence,
   updateDoctorPresence,

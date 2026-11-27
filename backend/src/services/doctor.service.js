@@ -522,6 +522,157 @@ const updateDoctorPresence = async (doctorId, status, notes = '') => {
   return result;
 };
 
+
+// -----------------------------------------------------------------------------
+// Date-specific availability slots
+// These records extend the recurring weekly schedule without replacing it.
+// -----------------------------------------------------------------------------
+const isValidCalendarDate = (value) => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+};
+
+const availabilityTimeToMinutes = (value) => {
+  if (typeof value !== 'string' || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(value)) {
+    throw new Error('Times must use valid HH:MM 24-hour format.');
+  }
+  const [hours, minutes] = value.split(':').map(Number);
+  return hours * 60 + minutes;
+};
+
+const getUtcDayBounds = (date) => ({
+  gte: new Date(`${date}T00:00:00.000Z`),
+  lt: new Date(new Date(`${date}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000),
+});
+
+const getDoctorAvailabilityCalendar = async (doctorId, startDate, endDate) => {
+  if (!isValidCalendarDate(startDate) || !isValidCalendarDate(endDate) || startDate > endDate) {
+    throw new Error('A valid date range is required (YYYY-MM-DD).');
+  }
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return prisma.appointmentSlot.findMany({
+    where: { doctorId, slotDate: { gte: start, lt: end } },
+    include: { appointment: { select: { id: true, status: true } } },
+    orderBy: [{ slotDate: 'asc' }, { startTime: 'asc' }],
+  });
+};
+
+const createDoctorAvailabilitySlot = async (doctorId, { date, startTime, endTime }) => {
+  if (!isValidCalendarDate(date)) throw new Error('A valid date is required (YYYY-MM-DD).');
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: process.env.HOSPITAL_TIMEZONE || 'Asia/Kolkata' }).format(new Date());
+  if (date < today) throw new Error('Availability cannot be added for a past date.');
+  const startMinutes = availabilityTimeToMinutes(startTime);
+  const endMinutes = availabilityTimeToMinutes(endTime);
+  if (startMinutes >= endMinutes) throw new Error('End time must be later than start time.');
+
+  const slotDate = new Date(`${date}T00:00:00.000Z`);
+  const dayOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][slotDate.getUTCDay()];
+  const [doctor, existingSlots] = await Promise.all([
+    prisma.doctor.findUnique({ where: { id: doctorId }, select: { id: true, consultationDuration: true, availabilities: true } }),
+    prisma.appointmentSlot.findMany({ where: { doctorId, slotDate: getUtcDayBounds(date) }, select: { id: true, startTime: true, endTime: true, status: true } }),
+  ]);
+  if (!doctor) throw new Error('Doctor not found.');
+
+  const duration = doctor.consultationDuration || 30;
+  if (endMinutes - startMinutes !== duration) {
+    throw new Error(`Availability slots must be exactly ${duration} minutes long.`);
+  }
+
+  const recurring = doctor.availabilities.find((item) => item.dayOfWeek === dayOfWeek && item.isAvailable);
+  if (recurring) {
+    const recurringStart = availabilityTimeToMinutes(recurring.startTime);
+    const recurringEnd = availabilityTimeToMinutes(recurring.endTime);
+    if (startMinutes < recurringEnd && endMinutes > recurringStart) {
+      throw new Error('This time overlaps the recurring weekly schedule. Use the weekly schedule editor for regular hours.');
+    }
+  }
+
+  const overlaps = existingSlots.some((slot) => {
+    const otherStart = availabilityTimeToMinutes(slot.startTime);
+    const otherEnd = availabilityTimeToMinutes(slot.endTime);
+    return startMinutes < otherEnd && endMinutes > otherStart;
+  });
+  if (overlaps) throw new Error('This time overlaps an existing availability slot.');
+
+  return prisma.appointmentSlot.create({
+    data: { doctorId, slotDate, startTime, endTime, status: 'AVAILABLE' },
+  });
+};
+
+const updateDoctorAvailabilitySlot = async (doctorId, slotId, updates) => {
+  const existing = await prisma.appointmentSlot.findFirst({
+    where: { id: slotId, doctorId },
+    include: { appointment: { select: { id: true, status: true } } },
+  });
+  if (!existing) throw new Error('Availability slot not found.');
+  if (existing.status === 'BOOKED' || existing.appointment) {
+    throw new Error('Slots linked to an appointment cannot be modified.');
+  }
+
+  const data = {};
+  if (updates.status !== undefined) {
+    if (!['AVAILABLE', 'BLOCKED'].includes(updates.status)) {
+      throw new Error('Slot status must be AVAILABLE or BLOCKED.');
+    }
+    data.status = updates.status;
+  }
+  if (updates.date !== undefined || updates.startTime !== undefined || updates.endTime !== undefined) {
+    const date = updates.date || existing.slotDate.toISOString().slice(0, 10);
+    const startTime = updates.startTime || existing.startTime;
+    const endTime = updates.endTime || existing.endTime;
+    if (!isValidCalendarDate(date)) throw new Error('A valid date is required (YYYY-MM-DD).');
+    const today = new Intl.DateTimeFormat('en-CA', {
+  timeZone: process.env.HOSPITAL_TIMEZONE || 'Asia/Kolkata',
+}).format(new Date());
+
+if (date < today) {
+  throw new Error('Availability cannot be moved to a past date.');
+}
+    const startMinutes = availabilityTimeToMinutes(startTime);
+    const endMinutes = availabilityTimeToMinutes(endTime);
+    if (startMinutes >= endMinutes) throw new Error('End time must be later than start time.');
+    const doctor = await prisma.doctor.findUnique({ where: { id: doctorId }, select: { consultationDuration: true, availabilities: true } });
+    if (!doctor || endMinutes - startMinutes !== (doctor.consultationDuration || 30)) {
+      throw new Error(`Availability slots must be exactly ${doctor?.consultationDuration || 30} minutes long.`);
+    }
+    const dateDay = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+    const dayName = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][dateDay];
+    const recurring = doctor.availabilities.find((item) => item.dayOfWeek === dayName && item.isAvailable);
+    if (recurring && startMinutes < availabilityTimeToMinutes(recurring.endTime) && endMinutes > availabilityTimeToMinutes(recurring.startTime)) {
+      throw new Error('This time overlaps the recurring weekly schedule.');
+    }
+    const overlap = await prisma.appointmentSlot.findFirst({
+      where: {
+        doctorId,
+        id: { not: slotId },
+        slotDate: getUtcDayBounds(date),
+        NOT: [{ startTime: { gte: endTime } }, { endTime: { lte: startTime } }],
+      },
+      select: { id: true },
+    });
+    if (overlap) throw new Error('This time overlaps another availability slot.');
+    data.slotDate = new Date(`${date}T00:00:00.000Z`);
+    data.startTime = startTime;
+    data.endTime = endTime;
+  }
+  return prisma.appointmentSlot.update({ where: { id: slotId }, data });
+};
+
+const deleteDoctorAvailabilitySlot = async (doctorId, slotId) => {
+  const existing = await prisma.appointmentSlot.findFirst({
+    where: { id: slotId, doctorId },
+    include: { appointment: { select: { id: true, status: true } } },
+  });
+  if (!existing) throw new Error('Availability slot not found.');
+  if (existing.status === 'BOOKED' || existing.appointment) {
+    throw new Error('Slots linked to an appointment cannot be deleted.');
+  }
+  return prisma.appointmentSlot.delete({ where: { id: slotId } });
+};
+
 module.exports = {
   getAllDoctors,
   getDoctorById,
@@ -529,6 +680,10 @@ module.exports = {
   updateDoctorProfile,
   getDoctorSchedule,
   updateDoctorSchedule,
+  getDoctorAvailabilityCalendar,
+  createDoctorAvailabilitySlot,
+  updateDoctorAvailabilitySlot,
+  deleteDoctorAvailabilitySlot,
   getAllPresences,
   getDoctorPresence,
   updateDoctorPresence,

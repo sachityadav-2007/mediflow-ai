@@ -1,8 +1,23 @@
 import { useState, useRef, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Html, Float } from '@react-three/drei';
+import { OrbitControls, Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import ExperienceLoader from '../common/ExperienceLoader';
+
+// 3D GLB Model Loader with automatic error fallback
+function RealisticAnatomyGLB({ opacity = 0.35 }) {
+  const { scene } = useGLTF('/models/anatomy_body.glb');
+  
+  // Clone or adjust material opacity
+  scene.traverse((child) => {
+    if (child.isMesh && child.name.includes('Skin')) {
+      child.material.transparent = true;
+      child.material.opacity = opacity;
+    }
+  });
+
+  return <primitive object={scene} position={[0, -0.6, 0]} />;
+}
 
 // Interactive Clickable Organ Component inside Anatomy
 function SelectableOrgan({
@@ -56,7 +71,7 @@ function SelectableOrgan({
         <meshStandardMaterial
           color={hovered || isSelected ? '#ffffff' : color}
           emissive={hovered || isSelected ? (emissiveColor || '#00e5ff') : '#000000'}
-          emissiveIntensity={hovered || isSelected ? 0.7 : 0.05}
+          emissiveIntensity={hovered || isSelected ? 0.75 : 0.08}
           roughness={0.35}
           metalness={0.1}
         />
@@ -75,64 +90,146 @@ function SelectableOrgan({
   );
 }
 
-// 3D Human Body Model with anatomical layers
-function HumanBodyModel({
+// 3D Procedural Multi-System Anatomical Body Model
+function ProceduralAnatomyModel({
   selectedOrgan,
   onSelectOrgan,
   activeLayer = 'all',
   opacity = 0.35,
 }) {
-  const showNervous = activeLayer === 'all' || activeLayer === 'nervous';
+  const showSkeletal = activeLayer === 'all' || activeLayer === 'skeletal';
+  const showMuscular = activeLayer === 'all' || activeLayer === 'muscular';
   const showCirculatory = activeLayer === 'all' || activeLayer === 'circulatory';
   const showRespiratory = activeLayer === 'all' || activeLayer === 'respiratory';
   const showDigestive = activeLayer === 'all' || activeLayer === 'digestive';
+  const showNervous = activeLayer === 'all' || activeLayer === 'nervous';
+  const showSkin = activeLayer === 'all' || activeLayer === 'skin';
 
   return (
     <group position={[0, -0.6, 0]}>
       {/* 1. Translucent Skin Shell (Torso, Head, Limbs) */}
-      <mesh position={[0, 1.1, 0]}>
-        <cylinderGeometry args={[0.38, 0.28, 1.25, 20]} />
-        <meshStandardMaterial
-          color="#60a5fa"
-          transparent={true}
-          opacity={opacity}
-          roughness={0.25}
-          metalness={0.1}
-          depthWrite={false}
-        />
-      </mesh>
+      {showSkin && (
+        <group>
+          {/* Torso Shell */}
+          <mesh position={[0, 1.1, 0]}>
+            <cylinderGeometry args={[0.38, 0.28, 1.25, 20]} />
+            <meshStandardMaterial
+              color="#60a5fa"
+              transparent={true}
+              opacity={opacity}
+              roughness={0.25}
+              metalness={0.1}
+              depthWrite={false}
+            />
+          </mesh>
 
-      {/* Head Shell */}
-      <mesh position={[0, 1.95, 0]}>
-        <sphereGeometry args={[0.26, 20, 20]} />
-        <meshStandardMaterial
-          color="#60a5fa"
-          transparent={true}
-          opacity={opacity}
-          roughness={0.25}
-          depthWrite={false}
-        />
-      </mesh>
+          {/* Head Shell */}
+          <mesh position={[0, 1.95, 0]}>
+            <sphereGeometry args={[0.26, 20, 20]} />
+            <meshStandardMaterial
+              color="#60a5fa"
+              transparent={true}
+              opacity={opacity}
+              roughness={0.25}
+              depthWrite={false}
+            />
+          </mesh>
 
-      {/* Arms & Legs Shell */}
-      <mesh position={[0.54, 1.15, 0]}>
-        <cylinderGeometry args={[0.09, 0.07, 1.05, 12]} />
-        <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
-      </mesh>
-      <mesh position={[-0.54, 1.15, 0]}>
-        <cylinderGeometry args={[0.09, 0.07, 1.05, 12]} />
-        <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
-      </mesh>
-      <mesh position={[0.2, -0.1, 0]}>
-        <cylinderGeometry args={[0.12, 0.09, 1.2, 12]} />
-        <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
-      </mesh>
-      <mesh position={[-0.2, -0.1, 0]}>
-        <cylinderGeometry args={[0.12, 0.09, 1.2, 12]} />
-        <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
-      </mesh>
+          {/* Arms & Legs Shell */}
+          <mesh position={[0.54, 1.15, 0]}>
+            <cylinderGeometry args={[0.09, 0.07, 1.05, 12]} />
+            <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
+          </mesh>
+          <mesh position={[-0.54, 1.15, 0]}>
+            <cylinderGeometry args={[0.09, 0.07, 1.05, 12]} />
+            <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
+          </mesh>
+          <mesh position={[0.2, -0.1, 0]}>
+            <cylinderGeometry args={[0.12, 0.09, 1.2, 12]} />
+            <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
+          </mesh>
+          <mesh position={[-0.2, -0.1, 0]}>
+            <cylinderGeometry args={[0.12, 0.09, 1.2, 12]} />
+            <meshStandardMaterial color="#60a5fa" transparent opacity={opacity * 0.7} depthWrite={false} />
+          </mesh>
+        </group>
+      )}
 
-      {/* 2. Embedded Visceral Organs */}
+      {/* 2. Skeletal System */}
+      {showSkeletal && (
+        <group>
+          {/* Cranium / Skull Bone */}
+          <mesh position={[0, 1.95, 0]}>
+            <sphereGeometry args={[0.22, 16, 16]} />
+            <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+          </mesh>
+
+          {/* Spine / Vertebral Column */}
+          {Array.from({ length: 12 }).map((_, i) => (
+            <mesh key={`vert-${i}`} position={[0, 0.6 + i * 0.09, -0.06]}>
+              <cylinderGeometry args={[0.045, 0.045, 0.06, 12]} />
+              <meshStandardMaterial color="#cbd5e1" roughness={0.4} />
+            </mesh>
+          ))}
+
+          {/* Rib Cage */}
+          {[-0.14, -0.07, 0, 0.07, 0.14].map((yOffset, i) => (
+            <mesh key={`rib-${i}`} position={[0, 1.25 + yOffset, 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.26 - Math.abs(yOffset) * 0.4, 0.022, 8, 24, Math.PI * 1.8]} />
+              <meshStandardMaterial color="#f1f5f9" roughness={0.4} />
+            </mesh>
+          ))}
+
+          {/* Pelvis Structure */}
+          <mesh position={[0, 0.52, 0]}>
+            <torusGeometry args={[0.22, 0.06, 8, 16, Math.PI]} />
+            <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+          </mesh>
+        </group>
+      )}
+
+      {/* 3. Muscular System */}
+      {showMuscular && (
+        <group>
+          {/* Pectoralis Major Left & Right */}
+          <mesh position={[-0.14, 1.35, 0.14]} rotation={[0, 0.2, -0.1]}>
+            <boxGeometry args={[0.18, 0.12, 0.04]} />
+            <meshStandardMaterial color="#dc2626" roughness={0.6} />
+          </mesh>
+          <mesh position={[0.14, 1.35, 0.14]} rotation={[0, -0.2, 0.1]}>
+            <boxGeometry args={[0.18, 0.12, 0.04]} />
+            <meshStandardMaterial color="#dc2626" roughness={0.6} />
+          </mesh>
+
+          {/* Rectus Abdominis (Abs) */}
+          {[-0.08, 0.08].map((x) =>
+            [0.85, 0.98, 1.1].map((y, idx) => (
+              <mesh key={`abs-${x}-${idx}`} position={[x, y, 0.14]}>
+                <boxGeometry args={[0.11, 0.09, 0.03]} />
+                <meshStandardMaterial color="#b91c1c" roughness={0.6} />
+              </mesh>
+            ))
+          )}
+        </group>
+      )}
+
+      {/* 4. Circulatory Vessels (Aorta & Vena Cava) */}
+      {showCirculatory && (
+        <group>
+          {/* Descending Aorta (Red) */}
+          <mesh position={[-0.03, 1.0, 0.0]}>
+            <cylinderGeometry args={[0.025, 0.025, 0.8, 12]} />
+            <meshStandardMaterial color="#e11d48" roughness={0.3} metalness={0.2} />
+          </mesh>
+          {/* Inferior Vena Cava (Blue) */}
+          <mesh position={[0.04, 1.0, 0.0]}>
+            <cylinderGeometry args={[0.025, 0.025, 0.8, 12]} />
+            <meshStandardMaterial color="#2563eb" roughness={0.3} metalness={0.2} />
+          </mesh>
+        </group>
+      )}
+
+      {/* 5. Visceral Organs */}
       {/* Brain */}
       {showNervous && (
         <SelectableOrgan
@@ -255,6 +352,7 @@ export default function AnatomyViewer({
 }) {
   const [activeLayer, setActiveLayer] = useState('all');
   const [skinOpacity, setSkinOpacity] = useState(0.35);
+  const [viewMode, setViewMode] = useState('schematic'); // 'schematic' or 'scan'
   const controlsRef = useRef();
 
   const resetCamera = () => {
@@ -274,6 +372,9 @@ export default function AnatomyViewer({
     } else if (region === 'abdomen') {
       controlsRef.current.target.set(0, 0.3, 0);
       controlsRef.current.object.position.set(0, 0.3, 2.0);
+    } else if (region === 'posterior') {
+      controlsRef.current.target.set(0, 0.5, 0);
+      controlsRef.current.object.position.set(0, 0.5, -3.5);
     } else {
       controlsRef.current.target.set(0, 0.3, 0);
       controlsRef.current.object.position.set(0, 0.5, 3.8);
@@ -282,31 +383,35 @@ export default function AnatomyViewer({
   };
 
   return (
-    <div className="relative w-full h-[580px] bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-xl flex flex-col">
+    <div className="relative w-full h-[620px] bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-xl flex flex-col">
       {/* 3D Canvas */}
       <Suspense fallback={<ExperienceLoader message="Loading 3D Anatomy Model..." />}>
         <Canvas
           camera={{ position: [0, 0.5, 3.8], fov: 45 }}
           style={{ width: '100%', height: '100%' }}
         >
-          <ambientLight intensity={0.7} />
-          <directionalLight position={[10, 10, 10]} intensity={1.2} />
+          <ambientLight intensity={0.75} />
+          <directionalLight position={[10, 10, 10]} intensity={1.3} />
           <directionalLight position={[-10, -5, -5]} intensity={0.5} color="#80d8ff" />
           <pointLight position={[0, 2, 2]} intensity={0.7} color="#ffffff" />
 
-          <HumanBodyModel
-            selectedOrgan={selectedOrgan}
-            onSelectOrgan={onSelectOrgan}
-            activeLayer={activeLayer}
-            opacity={skinOpacity}
-          />
+          {viewMode === 'scan' ? (
+            <RealisticAnatomyGLB opacity={skinOpacity} />
+          ) : (
+            <ProceduralAnatomyModel
+              selectedOrgan={selectedOrgan}
+              onSelectOrgan={onSelectOrgan}
+              activeLayer={activeLayer}
+              opacity={skinOpacity}
+            />
+          )}
 
           <OrbitControls
             ref={controlsRef}
             enablePan={true}
             enableZoom={true}
             enableRotate={true}
-            minDistance={1.4}
+            minDistance={1.2}
             maxDistance={6.0}
             target={[0, 0.3, 0]}
           />
@@ -315,14 +420,38 @@ export default function AnatomyViewer({
 
       {/* Top Floating Controls */}
       <div className="absolute top-4 left-4 right-4 flex items-center justify-between pointer-events-none">
-        <div className="bg-slate-900/85 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-700/60 text-white pointer-events-auto shadow-xs">
-          <span className="text-xs font-bold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-            Interactive Human Anatomy
-          </span>
+        <div className="bg-slate-900/85 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-slate-700/60 text-white pointer-events-auto shadow-xs flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="text-xs font-bold">Interactive Human Anatomy 3.0</span>
         </div>
 
         <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Model Mode Toggle: Schematic vs Realistic Scan */}
+          <div className="bg-slate-900/80 backdrop-blur-md p-1 rounded-xl border border-slate-700 flex items-center text-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode('schematic')}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                viewMode === 'schematic'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Schematic
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('scan')}
+              className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                viewMode === 'scan'
+                  ? 'bg-cyan-600 text-white'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Realistic 3D Scan
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={resetCamera}
@@ -346,16 +475,19 @@ export default function AnatomyViewer({
       </div>
 
       {/* Layer Filter Toolbar (Left Side) */}
-      <div className="absolute left-4 top-16 bg-slate-900/85 backdrop-blur-md p-2 rounded-2xl border border-slate-700/70 text-white flex flex-col gap-1.5 shadow-lg">
+      <div className="absolute left-4 top-16 bg-slate-900/85 backdrop-blur-md p-2 rounded-2xl border border-slate-700/70 text-white flex flex-col gap-1.5 shadow-lg max-h-[480px] overflow-y-auto">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
           Anatomical Systems
         </span>
         {[
           { id: 'all', label: 'All Systems', icon: '🌐' },
+          { id: 'skeletal', label: 'Skeletal', icon: '🦴' },
+          { id: 'muscular', label: 'Muscular', icon: '💪' },
           { id: 'circulatory', label: 'Circulatory', icon: '🫀' },
           { id: 'respiratory', label: 'Respiratory', icon: '🫁' },
           { id: 'digestive', label: 'Digestive', icon: '🥣' },
           { id: 'nervous', label: 'Nervous', icon: '🧠' },
+          { id: 'skin', label: 'Skin Shell', icon: '👤' },
         ].map((layer) => (
           <button
             key={layer.id}
@@ -374,7 +506,7 @@ export default function AnatomyViewer({
 
         <div className="mt-2 pt-2 border-t border-slate-800 px-2">
           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-            Skin Opacity
+            Skin Opacity: {Math.round(skinOpacity * 100)}%
           </label>
           <input
             type="range"
@@ -397,6 +529,7 @@ export default function AnatomyViewer({
             { id: 'head', label: 'Cranium' },
             { id: 'chest', label: 'Thorax' },
             { id: 'abdomen', label: 'Abdomen' },
+            { id: 'posterior', label: 'Posterior' },
           ].map((preset) => (
             <button
               key={preset.id}
@@ -410,7 +543,7 @@ export default function AnatomyViewer({
         </div>
 
         <div className="bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 text-[11px] text-slate-400 pointer-events-auto">
-          <span>Click any organ to inspect detailed anatomical specs.</span>
+          <span>Click any organ pin to inspect detailed anatomical specs.</span>
         </div>
       </div>
     </div>

@@ -249,15 +249,15 @@ model ImmersiveProgress {
 All binary 3D `.glb` assets in `frontend/public/models/` are procedurally synthesized using Three.js mathematical geometries (`CylinderGeometry`, `SphereGeometry`, `DodecahedronGeometry`, `TorusGeometry`, `CapsuleGeometry`) and exported via Khronos `GLTFExporter`.
 - **License**: MIT / Proprietary MediFlow AI Asset License (Royalty-free, open source for academic and clinical research).
 - **Asset Sizes**:
-  - `anatomy_body.glb`: ~89 KB
-  - `heart.glb`: ~54 KB
-  - `brain.glb`: ~47 KB
-  - `lungs.glb`: ~82 KB
-  - `liver.glb`: ~25 KB
-  - `kidneys.glb`: ~20 KB
-  - `stomach.glb`: ~38 KB
-  - `hospital_suite.glb`: ~14 KB
-- Total asset payload: **< 400 KB** (ultra-fast loading even on 3G cellular connections).
+  - `anatomy_body.glb`: ~427 KB (multi-system skeleton, vessels, visceral organs, and skin shell)
+  - `heart.glb`: ~89 KB (4 chambers, aorta, vena cava, coronary vessels)
+  - `brain.glb`: ~91 KB (cerebral hemispheres, sulci, cerebellum, brainstem)
+  - `lungs.glb`: ~124 KB (trachea, 3-lobe right, 2-lobe left with cardiac notch)
+  - `liver.glb`: ~47 KB (right & left lobes, falciform ligament, gallbladder)
+  - `kidneys.glb`: ~64 KB (renal cortex, medulla pyramids, ureters, vessels)
+  - `stomach.glb`: ~90 KB (fundus, body, antrum, pylorus, rugae folds)
+  - `hospital_suite.glb`: ~11 KB (reception desk, chairs, consultation suite)
+- Total asset payload: **< 1 MB** (ultra-fast loading even on mobile cellular connections).
 
 ---
 

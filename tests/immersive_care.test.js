@@ -3,8 +3,9 @@
  * Validates AR/VR catalog, 3D model retrieval, telemetry sessions, and learning progress.
  */
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-require('dotenv').config({ path: path.resolve(__dirname, '../backend/.env') });
+const dotenv = require('../backend/node_modules/dotenv');
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../backend/.env') });
 
 const http = require('http');
 const jwt = require('../backend/node_modules/jsonwebtoken');

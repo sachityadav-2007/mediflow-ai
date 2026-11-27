@@ -336,10 +336,13 @@ const DEFAULT_MODELS = [
   },
 ];
 
+let isSeeded = false;
+
 /**
  * Ensures seed experiences exist in the database; seeds them if empty.
  */
 async function ensureCatalogSeeded() {
+  if (isSeeded) return;
   try {
     const expCount = await prisma.immersiveExperience.count();
     if (expCount === 0) {
@@ -362,19 +365,22 @@ async function ensureCatalogSeeded() {
         });
       }
     }
+    isSeeded = true;
   } catch (error) {
     console.warn('Non-fatal: Could not seed immersive database tables:', error.message);
   }
 }
 
-// Auto-seed on server boot / first access
-ensureCatalogSeeded();
+// Auto-seed on server boot in background
+ensureCatalogSeeded().catch(() => {});
 
 /**
  * Retrieve experiences with optional category/type filtering.
  */
 async function getExperiences({ type, category }) {
-  await ensureCatalogSeeded();
+  if (!isSeeded) {
+    ensureCatalogSeeded().catch(() => {});
+  }
 
   const where = { isActive: true };
   if (type) where.type = type.toUpperCase();
@@ -403,7 +409,9 @@ async function getExperiences({ type, category }) {
  * Retrieve 3D models with optional category filtering.
  */
 async function getModels({ category }) {
-  await ensureCatalogSeeded();
+  if (!isSeeded) {
+    ensureCatalogSeeded().catch(() => {});
+  }
 
   const where = { isActive: true };
   if (category) where.category = category.toUpperCase();
